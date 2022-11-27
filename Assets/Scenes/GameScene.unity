@@ -392,16 +392,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cameraChild: {fileID: 963194225}
+  allowZoomKeys: 0
   movementTime: 10
+  isOrthographic: 0
+  OrthoFOV: 10
+  distanceOffset: 50
+  FOV: 60
   speedRange:
     Min: 0.1
-    Max: 1
+    Max: 0.5
   rotationAmount: 0.5
-  zoomAmountClose: {x: 0, y: -0.1, z: 0.1}
-  zoomAmountFar: {x: 0, y: -10, z: 0.01}
+  zoomAmount: {x: 0, y: -3, z: 3}
   zoomRange:
-    min: {x: 0, y: 5, z: -5}
-    max: {x: 0, y: 35, z: -20}
+    Min: 5
+    Max: 50
+  angleOffset: {x: -25, y: 20}
 --- !u!1 &1651946970
 GameObject:
   m_ObjectHideFlags: 0

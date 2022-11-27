@@ -21,12 +21,15 @@ public class CameraController : MonoBehaviour
     public GameObject cameraChild;
 
     [Header("General Settings")]
+    public bool allowZoomKeys;
     public float movementTime;
-    /*public bool orthographic;
-    [ConditionalField("orthographic", false, true)]
-    public float orthographicSize;
-    [ConditionalField("orthographic", false, false)]
-    public float FOV;*/
+    public bool isOrthographic;
+    [ConditionalField("isOrthographic", false, true)]
+    public float OrthoFOV;
+    [ConditionalField("isOrthographic", false, true)]
+    public float distanceOffset;
+    [ConditionalField("isOrthographic", false, false)]
+    public float FOV;
 
     [Header("Movement Settings")]
     public MinMaxFloat speedRange;
@@ -35,9 +38,9 @@ public class CameraController : MonoBehaviour
     public float rotationAmount;
 
     [Header("Zoom Settings")]
-    public Vector3 zoomAmountClose;
-    public Vector3 zoomAmountFar;
-    public Vector3Range zoomRange;
+    public Vector3 zoomAmount;
+    public MinMaxFloat zoomRange;
+    public Vector2 angleOffset;
 
     private float movementSpeed;
     private Vector3 newPosition;
@@ -52,35 +55,29 @@ public class CameraController : MonoBehaviour
     void Start() {
         cameraChild = transform.GetChild(0).gameObject;
 
+        cameraChild.GetComponent<Camera>().orthographic = isOrthographic;
+        if (isOrthographic) {
+            cameraChild.GetComponent<Camera>().orthographicSize = OrthoFOV;
+        } else {
+            cameraChild.GetComponent<Camera>().fieldOfView = FOV;
+            distanceOffset = 0;
+        }
+
         newPosition = transform.position;
         newRotation = transform.rotation;
-        newZoom = cameraChild.transform.localPosition;
+        newZoom = cameraChild.transform.localPosition + (zoomAmount * -distanceOffset); 
     }
 
     void LateUpdate() {
+        cameraChild.transform.LookAt(transform.position);
+
         HandleMovementInput();
         HandleMouseInput();
-        
-        cameraChild.transform.LookAt(transform.position);
-    }
-
-    public static float InverseLerp(Vector3 a, Vector3 b, Vector3 value)
-     {
-        Vector3 AB = b - a;
-        Vector3 AV = value - a;
-        return Vector3.Dot(AV, AB) / Vector3.Dot(AB, AB);
-     }
-
-    Vector3 GetZoomAmount() {
-        // get the position between zoom ranges
-        float zoomPosition = InverseLerp(zoomRange.min, zoomRange.max, newZoom);
-        // get the zoom amount based on the position
-        return Vector3.Lerp(zoomAmountClose, zoomAmountFar, zoomPosition).normalized;
     }
 
     void HandleMouseInput() {
         if (Input.mouseScrollDelta.y != 0) {
-            newZoom += Input.mouseScrollDelta.y * GetZoomAmount();
+            newZoom += Input.mouseScrollDelta.y * zoomAmount;
         }
 
         if (Input.GetMouseButtonDown(0)) {
@@ -146,21 +143,22 @@ public class CameraController : MonoBehaviour
             newRotation *= Quaternion.Euler(Vector3.up * -rotationAmount);
         }
 
-        if (Input.GetKey(KeyCode.R)) {
-            newZoom += GetZoomAmount();
-        }
-        if (Input.GetKey(KeyCode.F)) {
-            newZoom -= GetZoomAmount();
+        if (allowZoomKeys) {
+            if (Input.GetKey(KeyCode.R)) {
+                newZoom += zoomAmount;
+            }
+            if (Input.GetKey(KeyCode.F)) {
+                newZoom -= zoomAmount;
+            }
         }
         
-        // newZoom = new Vector3(
-        //     Mathf.Clamp(newZoom.x, zoomRange.min.x, zoomRange.max.x),
-        //     Mathf.Clamp(newZoom.y, zoomRange.min.y, zoomRange.max.y),
-        //     Mathf.Clamp(newZoom.z, zoomRange.min.z, zoomRange.max.z)
-        // );
+        newZoom = newZoom.normalized * Mathf.Clamp(newZoom.magnitude, zoomRange.Min + distanceOffset, zoomRange.Max + distanceOffset);
 
         transform.position = Vector3.Lerp(transform.position, newPosition, Time.deltaTime * movementTime);
         transform.rotation = Quaternion.Lerp(transform.rotation, newRotation, Time.deltaTime * movementTime);
         cameraChild.transform.localPosition = Vector3.Lerp(cameraChild.transform.localPosition, newZoom, Time.deltaTime * movementTime);
+
+        float offset = Mathf.Lerp(angleOffset[0], angleOffset[1], Mathf.InverseLerp(zoomRange.Min, zoomRange.Max, cameraChild.transform.localPosition.magnitude - distanceOffset));
+        cameraChild.transform.rotation *= Quaternion.AngleAxis(offset, Vector3.right);
     }
 }
