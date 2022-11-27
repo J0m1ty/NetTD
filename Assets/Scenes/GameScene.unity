@@ -315,7 +315,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 0
-  orthographic size: 5
+  orthographic size: 20
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -339,7 +339,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 963194225}
   m_LocalRotation: {x: 0.38268343, y: 0, z: 0, w: 0.92387956}
-  m_LocalPosition: {x: 0, y: 50, z: 0}
+  m_LocalPosition: {x: 0, y: 20, z: -20}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -355,6 +355,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1359453163}
+  - component: {fileID: 1359453164}
   m_Layer: 0
   m_Name: CameraRig
   m_TagString: Untagged
@@ -378,6 +379,29 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1359453164
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359453162}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57e8ea11e12a0c34b941f445eeec557e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cameraChild: {fileID: 963194225}
+  movementTime: 10
+  speedRange:
+    Min: 0.1
+    Max: 1
+  rotationAmount: 0.5
+  zoomAmountClose: {x: 0, y: -0.1, z: 0.1}
+  zoomAmountFar: {x: 0, y: -10, z: 0.01}
+  zoomRange:
+    min: {x: 0, y: 5, z: -5}
+    max: {x: 0, y: 35, z: -20}
 --- !u!1 &1651946970
 GameObject:
   m_ObjectHideFlags: 0
@@ -424,7 +448,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gridType: 1
   gridSize: {x: 20, y: 20}
-  gridRadius: 5
+  gridRadius: 20
   gradient:
     serializedVersion: 2
     key0: {r: 0.2750495, g: 0.8679245, b: 0.08597365, a: 1}
