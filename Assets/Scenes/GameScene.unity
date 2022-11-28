@@ -133,6 +133,7 @@ GameObject:
   m_Component:
   - component: {fileID: 152894787}
   - component: {fileID: 152894788}
+  - component: {fileID: 152894789}
   m_Layer: 0
   m_Name: WebSocketClient
   m_TagString: Untagged
@@ -168,6 +169,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   url: http://192.168.1.20:3000
+--- !u!114 &152894789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 152894786}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2957ccf3f8157604a98e20c6945b7140, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &705507993
 GameObject:
   m_ObjectHideFlags: 0
