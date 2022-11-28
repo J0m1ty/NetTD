@@ -71,7 +71,7 @@ public class WSClient : MonoBehaviour
         
         if (saved != null) {
             checkingSaved = true;
-            Auth(saved, noticeText);
+            Auth(saved, null);
         }
     }
 
@@ -97,17 +97,17 @@ public class WSClient : MonoBehaviour
     async private void Register(string a_Name, NoticeText a_Notice) {
         a_Name = a_Name.Trim();
 
-        a_Notice.SetWait("Registering...");
+        if (a_Notice != null) a_Notice.SetWait("Registering...");
         player = null;
         isAuth = false;
         
         if (!System.Text.RegularExpressions.Regex.IsMatch(a_Name, @"^[a-zA-Z0-9_]+$")) {
-            a_Notice.SetError("Invalid name characters");
+            if (a_Notice != null) a_Notice.SetError("Invalid name characters");
             return;
         }
         
         if (a_Name.Length < 3 || a_Name.Length > 12) {
-            a_Notice.SetError("Name too long or short");
+            if (a_Notice != null) a_Notice.SetError("Name too long or short");
             return;
         }
 
@@ -120,13 +120,13 @@ public class WSClient : MonoBehaviour
                     });
 
                     if (result.error != null && result.error.Length > 0) {
-                        a_Notice.SetError(result.error);
+                        if (a_Notice != null) a_Notice.SetError(result.error);
                     }
                     else if (result.player != null && result.player.Count > 0) {
                         Auth(new PlayerData(result.player["id"], result.player["name"]), a_Notice);
                     }
                     else {
-                        a_Notice.SetError("Register error");
+                        if (a_Notice != null) a_Notice.SetError("Register error");
                     }
                 });
                 
@@ -135,13 +135,15 @@ public class WSClient : MonoBehaviour
             await Task.WhenAny(registerTask, Task.Delay(TimeSpan.FromMilliseconds(timeout)));
         }
         catch (Exception) {
-            a_Notice.SetError("Request Timeout");
+            if (a_Notice != null) a_Notice.SetError("Request Timeout");
             return;
         }
     }
 
     async private void Auth(PlayerData unauthorizedPlayer, NoticeText a_Notice) {
         try {
+            if (a_Notice != null) a_Notice.SetWait("Authenticating...");
+
             var authTask = socket.EmitAsync("auth", (response) => {
                 WSClient.instance.AddJob(() => {
                     checkingSaved = false;
@@ -152,14 +154,14 @@ public class WSClient : MonoBehaviour
                     });
 
                     if (result.error != null && result.error.Length > 0) {
-                        a_Notice.SetError(result.error);
+                        if (a_Notice != null) a_Notice.SetError(result.error);
                     }
                     else if (result.player != null && result.player.Count > 0) {
                         player = unauthorizedPlayer;
                         player.id = result.player["id"];
                         player.name = result.player["name"];
 
-                        a_Notice.SetSuccess("Success!");
+                        if (a_Notice != null) a_Notice.SetSuccess("Success!");
 
                         isAuth = true;
 
@@ -168,7 +170,7 @@ public class WSClient : MonoBehaviour
                         SceneManager.LoadScene(nextScene.SceneName);
                     }
                     else {
-                        a_Notice.SetError("Auth error");
+                        if (a_Notice != null) a_Notice.SetError("Auth error");
                     }
                 });
             }, new { id = unauthorizedPlayer.id, name = unauthorizedPlayer.name });
@@ -176,7 +178,7 @@ public class WSClient : MonoBehaviour
             await Task.WhenAny(authTask, Task.Delay(TimeSpan.FromMilliseconds(timeout)));
         } 
         catch (Exception) {
-            a_Notice.SetError("Request Timeout");
+            if (a_Notice != null) a_Notice.SetError("Request Timeout");
             checkingSaved = false;
             return;
         }
