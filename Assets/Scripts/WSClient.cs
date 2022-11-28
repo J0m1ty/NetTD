@@ -24,7 +24,7 @@ public class WSClient : MonoBehaviour
     public NoticeText noticeText;
     public SceneReference registerScene;
     public SceneReference nextScene;
-    public TimeSpan timeout;
+    public int timeout;
 
     [Header("Player Info")]
     public string savePath = "saveData.dat";
@@ -45,6 +45,7 @@ public class WSClient : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         isAuth = false;
+        checkingSaved = false;
 
         var uri = new System.Uri(url);
 
@@ -56,7 +57,11 @@ public class WSClient : MonoBehaviour
 
         socket.Connect();
         
-        CheckSavedPlayer();
+        socket.OnConnected += (sender, e) => {
+            WSClient.instance.AddJob(() => {
+                CheckSavedPlayer();
+            });
+        };
     }
 
     private void CheckSavedPlayer() {
@@ -78,9 +83,7 @@ public class WSClient : MonoBehaviour
         else if (isAuth && player != null && !checkingSaved && SceneManager.GetActiveScene().name == registerScene.SceneName) {
             SceneManager.LoadScene(nextScene.SceneName);
         }
-
-        Debug.Log(isAuth + " " + checkingSaved + " " + SceneManager.GetActiveScene().name);
-
+        
         while (jobs.Count > 0) {
             jobs.Dequeue().Invoke();
         }
@@ -129,7 +132,7 @@ public class WSClient : MonoBehaviour
                 
             }, new {name = a_Name});
 
-            await Task.WhenAny(registerTask, Task.Delay(timeout));
+            await Task.WhenAny(registerTask, Task.Delay(TimeSpan.FromMilliseconds(timeout)));
         }
         catch (Exception) {
             a_Notice.SetError("Request Timeout");
@@ -170,7 +173,7 @@ public class WSClient : MonoBehaviour
                 });
             }, new { id = unauthorizedPlayer.id, name = unauthorizedPlayer.name });
 
-            await Task.WhenAny(authTask, Task.Delay(timeout));
+            await Task.WhenAny(authTask, Task.Delay(TimeSpan.FromMilliseconds(timeout)));
         } 
         catch (Exception) {
             a_Notice.SetError("Request Timeout");
