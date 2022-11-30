@@ -71,8 +71,10 @@ public class CameraController : MonoBehaviour
     void LateUpdate() {
         cameraChild.transform.LookAt(transform.position);
 
-        HandleMovementInput();
-        HandleMouseInput();
+        if (WSClient.isInputEnabled) {
+            HandleMovementInput();
+            HandleMouseInput();
+        }
     }
 
     void HandleMouseInput() {

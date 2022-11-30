@@ -6,12 +6,12 @@ using UnityEngine;
 public class PlayerData
 {
     public string id;
-    public string name;
+    public string username;
 
     public PlayerData(string a_Id, string a_Name)
     {
         this.id = a_Id;
-        this.name = a_Name;
+        this.username = a_Name;
     }
 
     public PlayerData(string json) {

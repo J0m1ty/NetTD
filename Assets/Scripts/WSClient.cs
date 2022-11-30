@@ -1,39 +1,109 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
 using MyBox;
 
 using SocketIOClient;
 using System;
 using System.Threading.Tasks;
 using UnityEngine.SceneManagement;
-using System.Dynamic;
 using Newtonsoft.Json;
+using System.Text;
+using System.Runtime.CompilerServices;
+using UnityEngine.UI;
+using System.Linq;
+
+
+
+[Serializable]
+public enum SceneType {
+    Normal,
+    Auth,
+    Menu
+}
+
+[Serializable]
+public struct SceneWrapper {
+    public SceneReference scene;
+    public bool requireAuth;
+    public SceneType type;
+}
+
+[Serializable]
+public enum RegisterStep {
+    None,
+    Pending,
+    Success,
+    Failure
+}
 
 public class WSClient : MonoBehaviour
 {
     public static WSClient instance;
 
+    public static bool isInputEnabled = true;
+
     private SocketIOUnity socket;
+
+    private Queue<Action> jobs = new Queue<Action>();
 
     [Header("SocketIO")]
     public string url = "http://192.168.1.20:3000";
-
-    [Header("Auth Settings")]
-    public NoticeText noticeText;
-    public SceneReference registerScene;
-    public SceneReference nextScene;
     public int timeout;
+    public int delay;
 
     [Header("Player Info")]
     public string savePath = "saveData.dat";
-    
-    private bool isAuth;
-    private bool checkingSaved;
     private PlayerData player;
 
-    private Queue<Action> jobs = new Queue<Action>();
+    [Header("Auth Settings")]
+    public GameObject authPopup;
+    public SceneWrapper[] scenes;
+    private bool isAuth;
+    private bool checkingSaved;
+    private string registerScene;
+    private string menuScene;
+    public RegisterStep registerStep {
+        get { return _registerStep; }
+        set {
+            _registerStep = value;
+
+            if (SceneManager.GetActiveScene().name == registerScene) {
+                var rg = GameObject.Find("RegisterGroup").GetComponent<RegisterGroup>();
+
+                var children = rg.fieldGroup.transform.GetComponentsInChildren<Button>();
+
+                switch (_registerStep) {
+                    case RegisterStep.Pending:
+                        rg.submitButton.interactable = false;
+                        rg.submitButton.gameObject.SetActive(true);
+                        rg.continueButton.interactable = false;
+                        rg.continueButton.gameObject.SetActive(false);
+                        Array.ForEach(children, x => {x.interactable = false;});
+                        rg.fieldGroup.gameObject.SetActive(true);
+                        break;
+                    case RegisterStep.Success:
+                        rg.submitButton.interactable = false;
+                        rg.submitButton.gameObject.SetActive(false);
+                        rg.continueButton.interactable = true;
+                        rg.continueButton.gameObject.SetActive(true);
+                        Array.ForEach(children, x => {x.interactable = false;});
+                        rg.fieldGroup.gameObject.SetActive(false);
+                        break;
+                    case RegisterStep.Failure:
+                    default:
+                        rg.submitButton.interactable = true;
+                        rg.submitButton.gameObject.SetActive(true);
+                        rg.continueButton.interactable = false;
+                        rg.continueButton.gameObject.SetActive(false);
+                        Array.ForEach(children, x => {x.interactable = true;});
+                        rg.fieldGroup.gameObject.SetActive(true);
+                        break;
+                }
+            }
+        }
+    }
+    private RegisterStep _registerStep;
 
     void Awake() {
         if (instance != null) {
@@ -44,9 +114,28 @@ public class WSClient : MonoBehaviour
         instance = this;
         DontDestroyOnLoad(gameObject);
 
+        ConnectSocket();
+
         isAuth = false;
         checkingSaved = false;
+        registerStep = RegisterStep.None;
+        
+        foreach (var s in scenes) {
+            if (s.type == SceneType.Auth) {
+                registerScene = s.scene.SceneName;
+            } else if (s.type == SceneType.Menu) {
+                menuScene = s.scene.SceneName;
+            }
+        }
+        
+        socket.OnConnected += (sender, e) => {
+            WSClient.instance.AddJob(() => {
+                CheckSavedPlayer();
+            });
+        };
+    }
 
+    void ConnectSocket() {
         var uri = new System.Uri(url);
 
         socket = new SocketIOUnity(uri, new SocketIOOptions {
@@ -56,93 +145,177 @@ public class WSClient : MonoBehaviour
         });
 
         socket.Connect();
-        
-        socket.OnConnected += (sender, e) => {
-            WSClient.instance.AddJob(() => {
-                CheckSavedPlayer();
-            });
-        };
     }
 
-    private void CheckSavedPlayer() {
+    void Update() {
+        while (jobs.Count > 0) {
+            jobs.Dequeue().Invoke();
+        }
+    }
+
+    async private void CheckSavedPlayer() {
         if (isAuth || checkingSaved) {return;}
 
         var saved = LoadJsonData();
         
         if (saved != null) {
             checkingSaved = true;
-            Auth(saved, null);
+
+            var currentSceneName = SceneManager.GetActiveScene().name;
+            
+            bool requireAuth = SceneAuth(currentSceneName);
+            
+            GameObject popup = null;
+            if (currentSceneName != registerScene && requireAuth) {
+                popup = Instantiate(authPopup, new Vector3(0, 0, 0), Quaternion.identity) as GameObject;
+                popup.transform.SetParent(GameObject.Find("Canvas").transform, false);
+                isInputEnabled = false;
+            }
+
+            var savedId = saved.id;
+            var savedUsername = saved.username;
+
+            await Auth(
+                a_Username: savedUsername, 
+                a_Id: savedId, 
+                a_Password: null, 
+                a_Notice: popup != null ? popup.GetComponentInChildren<NoticeText>() : null
+            );
+            
+            isInputEnabled = true;
+            
+            if (!isAuth && requireAuth) {
+                SceneManager.LoadScene(registerScene);
+            }
+            else if (isAuth && currentSceneName == registerScene) {
+                registerStep = RegisterStep.Success;
+            }
         }
     }
 
-    void Update() {
-        if (!isAuth && SceneManager.GetActiveScene().name != registerScene.SceneName && !checkingSaved) {
-            player = null;
-            SceneManager.LoadScene(registerScene.SceneName);
+    private bool SceneAuth(string name) {
+        foreach (var s in scenes) {
+            if (s.scene.SceneName == name) {
+                return s.requireAuth;
+            }
         }
-        else if (isAuth && player != null && !checkingSaved && SceneManager.GetActiveScene().name == registerScene.SceneName) {
-            SceneManager.LoadScene(nextScene.SceneName);
-        }
-        
-        while (jobs.Count > 0) {
-            jobs.Dequeue().Invoke();
-        }
+        return true;
     }
 
     public void Register() {
-        var inputField = GameObject.Find("InputField").GetComponent<TMP_InputField>();
-        Register(inputField.text, noticeText);
+        if (SceneManager.GetActiveScene().name != registerScene) {return;}
+        
+        var rg = GameObject.Find("RegisterGroup").GetComponent<RegisterGroup>();
+
+        var usernameField = rg.usernameField;
+        var passwordField = rg.passwordField;
+        var noticeText = rg.noticeText;
+        
+        registerStep = RegisterStep.Pending;
+
+        Register(usernameField.text, passwordField.text, noticeText);
     }
 
-    async private void Register(string a_Name, NoticeText a_Notice) {
-        a_Name = a_Name.Trim();
+    public void Continue() {
+        if (SceneManager.GetActiveScene().name != registerScene) {return;}
 
-        if (a_Notice != null) a_Notice.SetWait("Registering...");
-        player = null;
-        isAuth = false;
+        SceneManager.LoadScene(menuScene);
+    }
+
+    async private void Register(string a_Userame, string a_Password, NoticeText a_Notice) {
+        a_Notice.SetWait("Registering...");
         
-        if (!System.Text.RegularExpressions.Regex.IsMatch(a_Name, @"^[a-zA-Z0-9_]+$")) {
-            if (a_Notice != null) a_Notice.SetError("Invalid name characters");
+        await Task.Delay(TimeSpan.FromMilliseconds(delay));
+
+        if (isAuth || player != null) {
+            a_Notice.SetError("Sign out first");
+            registerStep = RegisterStep.Failure;
+            return;
+        }
+
+        var usernameInput = a_Userame.Trim();
+        var passwordInput = a_Password;
+
+        if (usernameInput.Length < 3 || usernameInput.Length > 12) {
+            if (a_Notice != null) a_Notice.SetError("Username must be 3-12 characters");
+            registerStep = RegisterStep.Failure;
+            return;
+        }
+
+        if (passwordInput.Length < 6 || passwordInput.Length > 16) {
+            if (a_Notice != null) a_Notice.SetError("Password must be 6-16 characters");
+            registerStep = RegisterStep.Failure;
             return;
         }
         
-        if (a_Name.Length < 3 || a_Name.Length > 12) {
-            if (a_Notice != null) a_Notice.SetError("Name too long or short");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(usernameInput, @"^[a-zA-Z0-9_]+$")) {
+            if (a_Notice != null) a_Notice.SetError("Invalid username characters");
+            registerStep = RegisterStep.Failure;
             return;
         }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(passwordInput, @"^[a-zA-Z0-9_]+$")) {
+            if (a_Notice != null) a_Notice.SetError("Invalid password characters");
+            registerStep = RegisterStep.Failure;
+            return;
+        }
+
+        var passwordHash = Encode(passwordInput);
 
         try {
             var registerTask = socket.EmitAsync("register", (response) => {
-                WSClient.instance.AddJob(() => {
+                WSClient.instance.AddJob(async () => {
                     var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
                         error = string.Empty,
-                        player = new Dictionary<string, string>()
+                        data = new Dictionary<string, string>()
                     });
 
-                    if (result.error != null && result.error.Length > 0) {
-                        if (a_Notice != null) a_Notice.SetError(result.error);
+                    if (!String.IsNullOrEmpty(result.error)) {
+                        a_Notice.SetError(result.error);
+                        registerStep = RegisterStep.Failure;
                     }
-                    else if (result.player != null && result.player.Count > 0) {
-                        Auth(new PlayerData(result.player["id"], result.player["name"]), a_Notice);
+                    else if (result.data != null) {
+                        var resultId = result.data["id"];
+                        var resultUsername = result.data["username"];
+                        var resultPasswordHash = result.data["passhash"];
+
+                        if (resultId != null && resultUsername == usernameInput && CheckHash(passwordInput, resultPasswordHash)) {
+                            await Auth(resultUsername, resultId, passwordInput, a_Notice);
+                        }
+                        else {
+                            a_Notice.SetError("Register error (invalid response)");
+                            registerStep = RegisterStep.Failure;
+                        }
                     }
                     else {
-                        if (a_Notice != null) a_Notice.SetError("Register error");
+                        a_Notice.SetError("Register error (empty response)");
+                        registerStep = RegisterStep.Failure;
                     }
                 });
                 
-            }, new {name = a_Name});
+            }, new { username = usernameInput, passhash = passwordHash });
 
             await Task.WhenAny(registerTask, Task.Delay(TimeSpan.FromMilliseconds(timeout)));
         }
         catch (Exception) {
             if (a_Notice != null) a_Notice.SetError("Request Timeout");
+            registerStep = RegisterStep.Failure;
             return;
         }
     }
 
-    async private void Auth(PlayerData unauthorizedPlayer, NoticeText a_Notice) {
+    async private Task Auth(string a_Username, string a_Id = null, string a_Password = null, NoticeText a_Notice = null, [CallerMemberName] string callerName = "") {
+        if (a_Notice != null) {
+            registerStep = RegisterStep.Pending;
+            a_Notice.SetWait("Authenticating...");
+        }
+        
+        if (callerName != "CheckSavedPlayer") {
+            await Task.Delay(TimeSpan.FromMilliseconds(delay));
+        }
+
         try {
-            if (a_Notice != null) a_Notice.SetWait("Authenticating...");
+            var passwordHash = a_Password == null ? null : Encode(a_Password);
 
             var authTask = socket.EmitAsync("auth", (response) => {
                 WSClient.instance.AddJob(() => {
@@ -150,35 +323,51 @@ public class WSClient : MonoBehaviour
 
                     var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
                         error = string.Empty,
-                        player = new Dictionary<string, string>()
+                        data = new Dictionary<string, string>()
                     });
 
-                    if (result.error != null && result.error.Length > 0) {
-                        if (a_Notice != null) a_Notice.SetError(result.error);
+                    if (!String.IsNullOrEmpty(result.error)) {
+                        if (a_Notice != null) {
+                            a_Notice.SetError(result.error);
+                            registerStep = RegisterStep.Failure;
+                        }
                     }
-                    else if (result.player != null && result.player.Count > 0) {
-                        player = unauthorizedPlayer;
-                        player.id = result.player["id"];
-                        player.name = result.player["name"];
-
-                        if (a_Notice != null) a_Notice.SetSuccess("Success!");
-
-                        isAuth = true;
-
-                        SaveJsonData(player);
+                    else if (result.data != null) {
+                        var resultId = result.data["id"];
+                        var resultUsername = result.data["username"];
+                        var resultPasswordHash = result.data["passhash"];
                         
-                        SceneManager.LoadScene(nextScene.SceneName);
+                        if (!String.IsNullOrEmpty(resultId) && resultUsername == a_Username && (a_Password == null || CheckHash(a_Password, resultPasswordHash))) {
+                            if (a_Notice != null) a_Notice.SetSuccess("Authenticated");
+                            isAuth = true;
+                            player = new PlayerData(resultId, resultUsername);
+                            SaveJsonData(player);
+
+                            registerStep = RegisterStep.Success;
+
+                            return;
+                        }
+                        else {
+                            if (a_Notice != null) {
+                                a_Notice.SetError("Auth error (invalid response)");
+                                registerStep = RegisterStep.Failure;
+                            }
+                        }
                     }
                     else {
-                        if (a_Notice != null) a_Notice.SetError("Auth error");
+                        if (a_Notice != null) {
+                            a_Notice.SetError("Auth error (empty response)");
+                            registerStep = RegisterStep.Failure;
+                        }
                     }
                 });
-            }, new { id = unauthorizedPlayer.id, name = unauthorizedPlayer.name });
+            }, new { id = a_Id, username = a_Username, passhash = passwordHash });
 
             await Task.WhenAny(authTask, Task.Delay(TimeSpan.FromMilliseconds(timeout)));
         } 
         catch (Exception) {
             if (a_Notice != null) a_Notice.SetError("Request Timeout");
+            registerStep = RegisterStep.Failure;
             checkingSaved = false;
             return;
         }
@@ -199,5 +388,20 @@ public class WSClient : MonoBehaviour
 
     internal void AddJob(Action newJob) {
         jobs.Enqueue(newJob);
+    }
+
+    private string Encode(string str) {
+        var crypt = new System.Security.Cryptography.SHA256Managed();
+        var hash = new System.Text.StringBuilder();
+        byte[] crypto = crypt.ComputeHash(Encoding.UTF8.GetBytes(str));
+        foreach (byte theByte in crypto)
+        {
+            hash.Append(theByte.ToString("x2"));
+        }
+        return hash.ToString();
+    }
+
+    private bool CheckHash(string str, string hash) {
+        return Encode(str) == hash;
     }
 }
