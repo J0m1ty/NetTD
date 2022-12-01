@@ -114,7 +114,7 @@ public class CameraController : MonoBehaviour
             Vector3 difference = rotateStartPosition - rotateCurrentPosition;
             rotateStartPosition = rotateCurrentPosition;
 
-            newRotation *= Quaternion.Euler(Vector3.up * (-difference.x / 5f));
+            newRotation *= Quaternion.Euler(Vector3.up * (-difference.x / 10f));
         }
     }
 

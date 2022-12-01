@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 public struct Face 
 {
@@ -27,6 +28,7 @@ public class HexRenderer : MonoBehaviour
     private List<Face> m_faces;
 
     public Material material;
+    public Color hexColor;
     public float innerSize;
     public float outerSize;
     public float height;
@@ -40,7 +42,20 @@ public class HexRenderer : MonoBehaviour
         m_mesh.name = "Hex";
 
         m_meshFilter.mesh = m_mesh;
-        SetMaterial(material);
+
+        if (hexColor != null) {
+            Material hexMaterial = new Material(Shader.Find("Standard"));
+            if (material != null) {
+                hexMaterial.CopyPropertiesFromMaterial(this.material);
+            }
+            
+            hexMaterial.color = hexColor;
+
+            SetMaterial(hexMaterial);
+        }
+        else {
+            SetMaterial(material);
+        }
     }
     
     private void OnEnable() {

@@ -1,6 +1,6 @@
 Shader "TextMeshPro/Distance Field" {
 
-Properties {
+Properties { 
 	_FaceTex			("Face Texture", 2D) = "white" {}
 	_FaceUVSpeedX		("Face UV Speed X", Range(-5, 5)) = 0.0
 	_FaceUVSpeedY		("Face UV Speed Y", Range(-5, 5)) = 0.0

@@ -131,7 +131,7 @@ public class HexGridLayout : MonoBehaviour
                     direction = Mod(direction + 1, 6);
                 }
 
-                AddHex($"r: {r}, p: {p}, info: {corner}, Dir: {direction}", new Vector3(drawPointer.x, 0f, drawPointer.y));
+                AddHex($"Hex {i}", new Vector3(drawPointer.x, 0f, drawPointer.y));
 
                 float theta = direction * Mathf.PI / 3f + (isFlatTopped ? Mathf.PI / 6f : 0f);
                 drawPointer.x += outerSize * Mathf.Cos(theta) * Mathf.Sqrt(3);
