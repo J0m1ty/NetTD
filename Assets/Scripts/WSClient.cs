@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using System.Text;
 using System.Runtime.CompilerServices;
 using UnityEngine.UI;
+using System.Text.RegularExpressions;
 
 public class WSClient : MonoBehaviour
 {
@@ -28,11 +29,22 @@ public class WSClient : MonoBehaviour
     public int timeoutMS; // server request delay
     public int delayMS; // server request delay
 
+    public Communicator communicator { 
+        get {
+            return GameObject.Find("WSCommunicator")?.GetComponent<Communicator>();
+        }
+    }
+
     [Header("Auth Settings")]
     public GameObject authPopup; // if not in a register scene, show popup
+    public GameObject disconnectPopup; // if currently disconnected, show popup
     public static bool isInputEnabled = true; // singleton to disable input while auth
     private bool isAuth; // is the player authenticated
     private bool checkingSaved; // is async memory being checked
+    private bool disconnectError; // show disconnect error next time register scene is updated
+    private bool safeDisconnecting; // is the player disconnecting
+
+    // todo: make job manager (only allow registering or auth, and cancel other jobs, and timeouts)
 
     // get/set event for registration UI display modes 
     public RegisterStep registerStep {
@@ -79,7 +91,8 @@ public class WSClient : MonoBehaviour
 
     [Header("Player Info")]
     public string savePath = "saveData.dat"; // save file
-    private PlayerData player;  // player data
+    public PlayerData player { get; private set; }  // player data
+    private string currentRoomId = ""; // current room id
 
     // Scene references
     [Header("Scene Info")]
@@ -111,8 +124,9 @@ public class WSClient : MonoBehaviour
         Success,
         Failure
     }
-    
-    void Awake() {
+
+    // Events
+    private void Awake() {
         if (instance != null) {
             Destroy(gameObject);
             return;
@@ -134,34 +148,251 @@ public class WSClient : MonoBehaviour
                 menuScene = s.scene.SceneName;
             }
         }
+
+        /** message event **/
+        OnMessageEvent();
         
+        /** connection events **/
         socket.OnConnected += (sender, e) => {
             WSClient.instance.AddJob(() => {
                 CheckSavedPlayer();
             });
         };
+
+        socket.OnDisconnected += (sender, e) => {
+            WSClient.instance.AddJob(() => {
+                if (!safeDisconnecting) {
+                    EnableDisconnectPopup();
+                }
+                safeDisconnecting = false;
+            });
+        };
+
+        socket.OnReconnectAttempt += (sender, e) => {
+            WSClient.instance.AddJob(() => {
+                EnableDisconnectPopup();
+                Debug.Log($"Reconnecting... {e}");
+            });
+        };
+
+        socket.OnReconnectFailed += (sender, e) =>
+        {
+            WSClient.instance.AddJob(() => {
+                DisableDisconnectPopup();
+                DisconnectSocket();
+                disconnectError = true;
+            });
+        };
+
+        socket.OnReconnected += (sender, e) => {
+            WSClient.instance.AddJob(() => {
+                DisableDisconnectPopup();
+            });
+        };
     }
 
-    void ConnectSocket() {
+    private void OnApplicationQuit() {
+        DisconnectSocket();
+    }
+
+    private void Update() {
+        if (!isAuth && SceneAuth(SceneManager.GetActiveScene().name)) {
+            SceneManager.LoadScene(registerScene);
+            return;
+        }
+
+        if (disconnectError && SceneManager.GetActiveScene().name == registerScene) {
+            var rg = GameObject.Find("RegisterGroup")?.GetComponent<RegisterGroup>()?.noticeText;
+
+            if (rg != null) {
+                rg.SetError("Server disconnect");
+            }
+
+            disconnectError = false;
+            return;
+        }
+
+        while (jobs.Count > 0) {
+            jobs.Dequeue().Invoke();
+        }
+    }
+    
+    // Methods
+    public async void HostRoom() {
+        Debug.Log("HostRoom");
+        await socket.EmitAsync("hostRoom", (response) => {
+            WSClient.instance.AddJob(() => {
+                Debug.Log("host room " + response.ToString());
+                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
+                    error = string.Empty,
+                    data = new Dictionary<string, string>()
+                });
+
+                // error : string
+                // data : {roomId: string}
+
+                if (!string.IsNullOrEmpty(result.error)) {
+                    Debug.Log("host err: " + result.error);
+                } else {
+                    Debug.Log("host data: " + result.data);
+                }
+            });
+        });
+    }
+
+    public async void JoinRoom(string id) {
+        Debug.Log("JoinRoom");
+
+        var inputId = id.ToUpper();
+        
+        if (inputId.Length != 4 || !Regex.IsMatch(inputId, @"^[a-zA-Z0-9]+$")) {
+            Debug.Log("Invalid room ID");
+            return;
+        }
+        
+        await socket.EmitAsync("joinRoom", (response) => {
+            WSClient.instance.AddJob(() => {
+                Debug.Log("join room " + response.ToString());
+
+                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
+                    error = string.Empty,
+                    data = new Dictionary<string, string>(),
+                    users = new List<Dictionary<string, string>>()
+                });
+
+                // error : string
+                // data: {roomId : string}
+                // users: [{username : string}]
+
+                if (!string.IsNullOrEmpty(result.error)) {
+                    Debug.Log("join:err " + result.error);
+                } else {
+                    Debug.Log("join:data " + result.data.ToString());
+                }
+            });
+        }, new { roomId = inputId });
+    }
+
+    public async void EmitMessage(string message) {
+        if (SceneManager.GetActiveScene().name == menuScene) {
+            await EmitMessage(message, "MAIN");
+        }
+        else if (!String.IsNullOrEmpty(currentRoomId)) {
+            await EmitMessage(message, currentRoomId);
+            
+        }
+        else {
+            Debug.Log("No room id");
+        }
+    }
+
+    private async Task EmitMessage(string message, string roomId) {
+        if (message.Trim().Length > 100 || message.Trim().Length <= 1) {
+            Debug.Log("Message too long or too short");
+            return;
+        }
+
+        await socket.EmitAsync("message", new { roomId = roomId, message = message });
+    }
+
+    private void OnMessageEvent() {
+        socket.On("message", (response) => {
+            WSClient.instance.AddJob(() => {
+                Debug.Log("message: " + response.ToString());
+                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
+                    error = string.Empty,
+                    data = new Dictionary<string, string>()
+                });
+
+                // error : string
+                // data : {username: string, message: string, roomId: string, timestamp: string}
+
+                if (result?.data["roomId"] == "MAIN" && SceneManager.GetActiveScene().name != menuScene) {
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(result.error)) {
+                    Debug.Log("message err " + result.error);
+                } else {
+                    communicator.WriteMessage(result.data["username"], result.data["message"]);
+                }
+            });
+        });
+    }
+
+    private void OnUsersEvent() {
+        socket.On("users", (response) => {
+            WSClient.instance.AddJob(() => {
+                Debug.Log("users: " + response.ToString());
+                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
+                    error = string.Empty,
+                    data = new Dictionary<string, string>(),
+                    users = new List<Dictionary<string, string>>()
+                });
+
+                // error : string
+                // data : {roomId: string}
+                // users : [{username: string}]
+
+                if (!string.IsNullOrEmpty(result.error)) {
+                    Debug.Log("users err " + result.error);
+                } else {
+                    Debug.Log("users data " + result.data.ToString());
+                }
+            });
+        });
+    }
+
+    private void UpdateUsers() {
+        
+    }
+
+    private void ConnectSocket() {
         var uri = new System.Uri(url);
 
         socket = new SocketIOUnity(uri, new SocketIOOptions {
             Query = new Dictionary<string, string> {
                 { "token", "UNITY" }
-            }
+            },
+            ConnectionTimeout = TimeSpan.FromMilliseconds(timeoutMS),
+            ReconnectionAttempts = 3,
         });
 
         socket.Connect();
     }
-
-    void Update() {
-        while (jobs.Count > 0) {
-            jobs.Dequeue().Invoke();
+    
+    private void DisconnectSocket() {
+        isAuth = false;
+        player = null;
+        checkingSaved = false;
+        registerStep = RegisterStep.None;
+        jobs.Clear();
+        socket?.Disconnect();
+    }
+    
+    private void EnableDisconnectPopup() {
+        if (GameObject.Find("DisconnectPopup") == null) {
+            var popup = Instantiate(disconnectPopup, new Vector3(0, 0, 0), Quaternion.identity) as GameObject;
+            popup.transform.SetParent(GameObject.Find("Canvas").transform, false);
+            popup.name = "DisconnectPopup";
         }
+        isInputEnabled = false;
     }
 
-    void OnApplicationQuit() {
-        socket.Disconnect();
+    private void DisableDisconnectPopup() {
+        var popup = GameObject.Find("DisconnectPopup");
+        if (popup != null) {
+            Destroy(popup);
+        }
+        isInputEnabled = true;
+    }
+
+    public void Logout() {
+        safeDisconnecting = true;
+        DeleteJsonData();
+        DisconnectSocket();
+        SceneManager.LoadScene(registerScene);
+        ConnectSocket();
     }
     
     async private void CheckSavedPlayer() {
@@ -185,11 +416,12 @@ public class WSClient : MonoBehaviour
 
             var savedId = saved.id;
             var savedUsername = saved.username;
+            var savedColor = saved.color;
 
             await Auth(
                 a_Username: savedUsername, 
                 a_Id: savedId, 
-                a_Password: null, 
+                a_Password: null,
                 a_Notice: popup != null ? popup.GetComponentInChildren<NoticeText>() : null
             );
             
@@ -307,7 +539,7 @@ public class WSClient : MonoBehaviour
         }, new { username = usernameInput, passhash = passwordHash });
 
         if (await Task.WhenAny(registerTask, Task.Delay(TimeSpan.FromMilliseconds(timeoutMS))) != registerTask) {
-            a_Notice.SetError("Register error (timeout)");
+            a_Notice.SetError("Register error (code timeout)");
             registerStep = RegisterStep.Failure;
         }
     }
@@ -349,7 +581,7 @@ public class WSClient : MonoBehaviour
                     if (!String.IsNullOrEmpty(resultId) && resultUsername == a_Username && (a_Password == null || CheckHash(a_Password, resultPasswordHash))) {
                         if (a_Notice != null) a_Notice.SetSuccess("Authenticated");
                         isAuth = true;
-                        player = new PlayerData(resultId, resultUsername);
+                        player = new PlayerData(resultId, resultUsername, "#FFFFFF");
                         SaveJsonData(player);
 
                         registerStep = RegisterStep.Success;
@@ -374,7 +606,7 @@ public class WSClient : MonoBehaviour
 
         if (await Task.WhenAny(authTask, Task.Delay(TimeSpan.FromMilliseconds(timeoutMS))) != authTask) {
             if (a_Notice != null) {
-                a_Notice.SetError("Auth error (timeout)");
+                a_Notice.SetError("Auth error (code timeout)");
                 registerStep = RegisterStep.Failure;
             }
             checkingSaved = false;
@@ -392,6 +624,10 @@ public class WSClient : MonoBehaviour
         else {
             return null;
         }
+    }
+
+    private bool DeleteJsonData() {
+        return FileManager.EmptyFile(savePath);
     }
 
     private void AddJob(Action newJob) {

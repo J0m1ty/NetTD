@@ -407,10 +407,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   url: http://192.168.1.20:3000
-  timeoutMS: 3000
-  delayMS: 2000
+  timeoutMS: 1000
+  delayMS: 1000
+  authPopup: {fileID: 4691819852160180889, guid: a3d31089c0c743d40aa45308f617e038, type: 3}
+  disconnectPopup: {fileID: 7770693130341472757, guid: 4ec87886e2f1bdf4389da98a8fc94e1e, type: 3}
   savePath: saveData.dat
-  authPopup: {fileID: 3041223922077285102, guid: a3d31089c0c743d40aa45308f617e038, type: 3}
   scenes:
   - scene:
       Scene: {fileID: 102900000, guid: 13b9dcbd39fc69e4e9c0671390a0c439, type: 3}
@@ -424,7 +425,7 @@ MonoBehaviour:
       SceneName: MenuScene
       sceneIndex: 2
       sceneEnabled: 1
-    requireAuth: 1
+    requireAuth: 0
     type: 2
   - scene:
       Scene: {fileID: 102900000, guid: 42392dbbe89b73c42b85e547eff42b2a, type: 3}
@@ -446,7 +447,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 2
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &213747328
 GameObject:
@@ -583,6 +584,51 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 213747328}
   m_CullTransparentMesh: 1
+--- !u!1 &278982285
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 278982287}
+  - component: {fileID: 278982286}
+  m_Layer: 0
+  m_Name: WSCommunicator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &278982286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 278982285}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5de74b51aded7cb49b6a8623fb868052, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  nameText: {fileID: 0}
+--- !u!4 &278982287
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 278982285}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -0.00012207031, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 2
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &405257797
 GameObject:
   m_ObjectHideFlags: 0
@@ -2009,8 +2055,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 195526908}
-        m_TargetAssemblyTypeName: WSClient, Assembly-CSharp
+      - m_Target: {fileID: 278982286}
+        m_TargetAssemblyTypeName: Communicator, Assembly-CSharp
         m_MethodName: Continue
         m_Mode: 1
         m_Arguments:
@@ -2143,8 +2189,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 195526908}
-        m_TargetAssemblyTypeName: WSClient, Assembly-CSharp
+      - m_Target: {fileID: 278982286}
+        m_TargetAssemblyTypeName: Communicator, Assembly-CSharp
         m_MethodName: Register
         m_Mode: 1
         m_Arguments:

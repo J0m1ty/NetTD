@@ -35,4 +35,19 @@ public static class FileManager
             return false;
         }
     }
+
+    public static bool EmptyFile(string a_FileName) {
+        var fullPath = Path.Combine(Application.persistentDataPath, a_FileName);
+
+        try
+        {
+            File.WriteAllText(fullPath, "");
+            return true;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to write to {fullPath} with exception {e}");
+            return false;
+        }
+    }
 }
