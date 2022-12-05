@@ -5,15 +5,32 @@ using TMPro;
 
 public class Communicator : MonoBehaviour
 {
+    [Header("Username Info")]
     public TextMeshProUGUI nameText;
 
+    [Header("Chat Settings")]
     public TMP_InputField inputField;
     public Transform textContent;
     public GameObject textPrefab;
 
+    public Transform userTextContent;
+    public GameObject userTextPrefab;
+
+    [Header("Room Settings")]
+    public GameObject roomInfo;
+    public TMP_InputField roomIdDisplay;
+    public Transform roomPlayersContent;
+    public GameObject roomPlayerTilePrefab;
+    public TMP_InputField roomField;
+    public bool mainScene = false;
+
     void Start()
     {
         UpdateName();
+
+        if (mainScene) {
+            this.JoinRoom(WSClient.instance.mainRoomId);
+        }
     }
 
     public void UpdateName() {
@@ -30,6 +47,12 @@ public class Communicator : MonoBehaviour
 
     public void HostRoom() {
         WSClient.instance.HostRoom();
+    }
+
+    public void JoinRoom() {
+        var roomId = roomField.text;
+        if (roomId == "MAIN") {return;}
+        JoinRoom(roomId);
     }
 
     public void JoinRoom(string id) {
@@ -60,9 +83,47 @@ public class Communicator : MonoBehaviour
 
     public void WriteMessage(string username, string message, string hex = "#FFFFFF") {
         if (textContent == null || textPrefab == null) return;
-
-        // make new text
+        
         var text = Instantiate(textPrefab, textContent);
         text.GetComponent<TextMeshProUGUI>().text = $"<color={hex}>{username}: {message}</color>";
+    }
+
+    public void ClearUsers() {
+        if (userTextContent == null) return;
+
+        foreach (Transform child in userTextContent) {
+            Destroy(child.gameObject);
+        }
+    }
+
+    public void AddUser(string username, string hex = "#FFFFFF") {
+        if (userTextContent == null || userTextPrefab == null) return;
+        
+        var text = Instantiate(userTextPrefab, userTextContent);
+        text.GetComponent<TextMeshProUGUI>().text = $"<color={hex}>{username}</color>";
+    }
+
+    public void SetRoomInfo(bool to, string roomId = "") {
+        if (roomInfo == null || roomIdDisplay == null) return;
+
+        roomIdDisplay.text = roomId;
+
+        roomInfo.SetActive(to);
+    }
+
+    public void ClearRoomPlayers() {
+        if (roomPlayersContent == null) return;
+
+        foreach (Transform child in roomPlayersContent) {
+            if (child.name == "PlayerCount") continue;
+            Destroy(child.gameObject);
+        }
+    }
+
+    public void AddRoomPlayer(string username, string hex = "#FFFFFF") {
+        if (roomPlayersContent == null || roomPlayerTilePrefab == null) return;
+        
+        var text = Instantiate(roomPlayerTilePrefab, roomPlayersContent);
+        text.GetComponentInChildren<TextMeshProUGUI>().text = $"<color={hex}>{username}</color>";
     }
 }

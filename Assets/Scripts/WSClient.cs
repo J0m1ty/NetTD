@@ -92,6 +92,9 @@ public class WSClient : MonoBehaviour
     [Header("Player Info")]
     public string savePath = "saveData.dat"; // save file
     public PlayerData player { get; private set; }  // player data
+
+    [Header("Room Info")]
+    public string mainRoomId = "MAIN"; // main room id
     private string currentRoomId = ""; // current room id
 
     // Scene references
@@ -150,7 +153,65 @@ public class WSClient : MonoBehaviour
         }
 
         /** message event **/
-        OnMessageEvent();
+        socket.On("message", (response) => {
+            WSClient.instance.AddJob(() => {
+                Debug.Log("received message: " + response.ToString());
+                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
+                    error = string.Empty,
+                    data = new Dictionary<string, string>(),
+                    users = new List<Dictionary<string, string>>()
+                });
+
+                // error : string
+                // data : {username: string, message: string, roomId: string, timestamp: string}
+                // users : [{username: string}]
+
+                if ((result?.data["roomId"] == "MAIN" && SceneManager.GetActiveScene().name != menuScene) || (result?.data["roomId"] != "MAIN" && result?.data["roomId"] != currentRoomId)) {
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(result.error)) {
+                    Debug.Log("received message err " + result.error);
+                } else {
+                    Debug.Log("received message data " + result.data);
+
+                    UpdateUsernames(result.data["roomId"], result.users);
+
+                    if (result.data["username"] == player.username) {
+                        return;
+                    }
+                    communicator.WriteMessage(result.data["username"], result.data["message"]);
+                }
+            });
+        });
+
+        /** update users event **/
+        socket.On("users", (response) => {
+            WSClient.instance.AddJob(() => {
+                Debug.Log("users: " + response.ToString());
+                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
+                    error = string.Empty,
+                    data = new Dictionary<string, string>(),
+                    users = new List<Dictionary<string, string>>()
+                });
+
+                // error : string
+                // data : {roomId: string}
+                // users : [{username: string}]
+
+                if ((result?.data["roomId"] == "MAIN" && SceneManager.GetActiveScene().name != menuScene) || (result?.data["roomId"] != "MAIN" && result?.data["roomId"] != currentRoomId)) {
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(result.error)) {
+                    Debug.Log("users err " + result.error);
+                } else {
+                    UpdateUsernames(result.data["roomId"], result.users);
+                    
+                    Debug.Log("users data " + result.data.ToString());
+                }
+            });
+        });
         
         /** connection events **/
         socket.OnConnected += (sender, e) => {
@@ -181,14 +242,26 @@ public class WSClient : MonoBehaviour
                 DisableDisconnectPopup();
                 DisconnectSocket();
                 disconnectError = true;
+                SceneManager.LoadScene(registerScene);
             });
         };
 
         socket.OnReconnected += (sender, e) => {
             WSClient.instance.AddJob(() => {
                 DisableDisconnectPopup();
+
+                if (player != null) {
+                    Debug.Log("Reconnected, sending auth");
+
+                    this.CheckSavedPlayer(optionalData: player); // WHY IS THIS NOT FIRING
+                }
             });
         };
+
+        socket.OnAnyInUnityThread((name, response) =>
+        {
+            Debug.Log("Received On " + name + " : " + response.GetValue().GetRawText());
+        });
     }
 
     private void OnApplicationQuit() {
@@ -225,15 +298,21 @@ public class WSClient : MonoBehaviour
                 Debug.Log("host room " + response.ToString());
                 var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
                     error = string.Empty,
-                    data = new Dictionary<string, string>()
+                    data = new Dictionary<string, string>(),
+                    users = new List<Dictionary<string, string>>()
                 });
 
                 // error : string
-                // data : {roomId: string}
+                // data : {roomId : string}
+                // users : [{username : string}]
 
                 if (!string.IsNullOrEmpty(result.error)) {
                     Debug.Log("host err: " + result.error);
                 } else {
+                    currentRoomId = result.data["roomId"];
+
+                    UpdateUsernames(result.data["roomId"], result.users);
+
                     Debug.Log("host data: " + result.data);
                 }
             });
@@ -241,7 +320,7 @@ public class WSClient : MonoBehaviour
     }
 
     public async void JoinRoom(string id) {
-        Debug.Log("JoinRoom");
+        Debug.Log("JoinRoom" + " " + id);
 
         var inputId = id.ToUpper();
         
@@ -267,6 +346,10 @@ public class WSClient : MonoBehaviour
                 if (!string.IsNullOrEmpty(result.error)) {
                     Debug.Log("join:err " + result.error);
                 } else {
+                    currentRoomId = result.data["roomId"];
+
+                    UpdateUsernames(result.data["roomId"], result.users);
+
                     Debug.Log("join:data " + result.data.ToString());
                 }
             });
@@ -292,38 +375,11 @@ public class WSClient : MonoBehaviour
             return;
         }
 
-        await socket.EmitAsync("message", new { roomId = roomId, message = message });
-    }
+        Debug.Log("EmitMessage" + " " + message + " " + roomId);
 
-    private void OnMessageEvent() {
-        socket.On("message", (response) => {
+        await socket.EmitAsync("message", (response) => {
             WSClient.instance.AddJob(() => {
-                Debug.Log("message: " + response.ToString());
-                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
-                    error = string.Empty,
-                    data = new Dictionary<string, string>()
-                });
-
-                // error : string
-                // data : {username: string, message: string, roomId: string, timestamp: string}
-
-                if (result?.data["roomId"] == "MAIN" && SceneManager.GetActiveScene().name != menuScene) {
-                    return;
-                }
-
-                if (!string.IsNullOrEmpty(result.error)) {
-                    Debug.Log("message err " + result.error);
-                } else {
-                    communicator.WriteMessage(result.data["username"], result.data["message"]);
-                }
-            });
-        });
-    }
-
-    private void OnUsersEvent() {
-        socket.On("users", (response) => {
-            WSClient.instance.AddJob(() => {
-                Debug.Log("users: " + response.ToString());
+                Debug.Log("message callback: " + response.ToString());
                 var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
                     error = string.Empty,
                     data = new Dictionary<string, string>(),
@@ -331,20 +387,101 @@ public class WSClient : MonoBehaviour
                 });
 
                 // error : string
-                // data : {roomId: string}
+                // data : {username: string, message: string, roomId: string, timestamp: string}
                 // users : [{username: string}]
 
+                if ((result?.data["roomId"] == "MAIN" && SceneManager.GetActiveScene().name != menuScene) || (result?.data["roomId"] != "MAIN" && result?.data["roomId"] != currentRoomId)) {
+                    return;
+                }
+
                 if (!string.IsNullOrEmpty(result.error)) {
-                    Debug.Log("users err " + result.error);
+                    Debug.Log("message callback err " + result.error);
                 } else {
-                    Debug.Log("users data " + result.data.ToString());
+                    Debug.Log("message callback data " + result.data.ToString());
+
+                    UpdateUsernames(result.data["roomId"], result.users);
+
+                    if (result.data["username"] == player.username) {
+                        return;
+                    }
+
+                    communicator.WriteMessage(result.data["username"], result.data["message"]);
                 }
             });
-        });
+        }, new { roomId = roomId, message = message });
     }
 
-    private void UpdateUsers() {
-        
+    private void UpdateUsernames(string targetRoom, List<Dictionary<string, string>> users) {
+        Debug.Log("target " + targetRoom + " ||| current " + currentRoomId);
+
+        if (targetRoom == mainRoomId) {
+            if (SceneManager.GetActiveScene().name == menuScene) {
+
+                // in menu, refering to main room, safe to update chat users
+                if (users.Count > 0) {
+                    communicator.ClearUsers();
+                    foreach (var u in users) {
+                        communicator.AddUser(u["username"]);
+                    }
+                }
+
+                if (currentRoomId == mainRoomId) {
+                    // in menu, refering to main room, and in main room
+                    communicator.SetRoomInfo(false, mainRoomId);
+                }
+                else {
+                    // in menu, refering to main room, but not in main room
+                    communicator.SetRoomInfo(true, currentRoomId);
+                }
+            }
+        }
+        else if (targetRoom == currentRoomId) {
+            if (SceneManager.GetActiveScene().name == menuScene) {
+                // in menu, but not refering to main room, have to update room info (not chat)
+                communicator.SetRoomInfo(true, currentRoomId);
+
+                if (users.Count > 0) {
+                    communicator.ClearRoomPlayers();
+                    foreach (var u in users) {
+                        communicator.AddRoomPlayer(u["username"]);
+                    }
+                }
+            }
+            else {
+                // Not in menu, not refering to main room, safe to update chat users
+                if (users.Count > 0) {
+                    communicator.ClearUsers();
+                    foreach (var u in users) {
+                        communicator.AddUser(u["username"]);
+                    }
+                }
+            }
+        }
+
+        // if (targetRoom == mainRoomId) {
+        //     if (SceneManager.GetActiveScene().name == menuScene) {
+        //         communicator.SetRoomInfo(false, mainRoomId);
+
+        //         if (users.Count > 0) {
+        //             communicator.ClearUsers();
+        //             foreach (var u in users) {
+        //                 communicator.AddUser(u["username"]);
+        //             }
+        //         }
+        //     }
+        // }
+        // else {
+        //     if (SceneManager.GetActiveScene().name == menuScene) {
+        //         communicator.SetRoomInfo(true, currentRoomId);
+
+        //         if (users.Count > 0) {
+        //             communicator.ClearRoomPlayers();
+        //             foreach (var u in users) {
+        //                 communicator.AddRoomPlayer(u["username"]);
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     private void ConnectSocket() {
@@ -395,10 +532,12 @@ public class WSClient : MonoBehaviour
         ConnectSocket();
     }
     
-    async private void CheckSavedPlayer() {
+    async private void CheckSavedPlayer(PlayerData optionalData = null) {
         if (isAuth || checkingSaved) {return;}
 
-        var saved = LoadJsonData();
+        var saved = optionalData != null ? optionalData : LoadJsonData();
+
+        Debug.Log(saved);
         
         if (saved != null) {
             checkingSaved = true;

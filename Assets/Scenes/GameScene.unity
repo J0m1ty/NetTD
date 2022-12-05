@@ -847,7 +847,9 @@ MonoBehaviour:
   timeoutMS: 3000
   delayMS: 1000
   authPopup: {fileID: 3041223922077285102, guid: a3d31089c0c743d40aa45308f617e038, type: 3}
+  disconnectPopup: {fileID: 0}
   savePath: saveData.dat
+  mainRoomId: MAIN
   scenes:
   - scene:
       Scene: {fileID: 102900000, guid: 13b9dcbd39fc69e4e9c0671390a0c439, type: 3}
@@ -861,14 +863,14 @@ MonoBehaviour:
       SceneName: MenuScene
       sceneIndex: 2
       sceneEnabled: 1
-    requireAuth: 1
+    requireAuth: 0
     type: 2
   - scene:
       Scene: {fileID: 102900000, guid: 42392dbbe89b73c42b85e547eff42b2a, type: 3}
       SceneName: GameScene
       sceneIndex: 1
       sceneEnabled: 1
-    requireAuth: 1
+    requireAuth: 0
     type: 0
 --- !u!4 &2089879054
 Transform:
