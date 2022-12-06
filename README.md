@@ -3,5 +3,5 @@ NetTD is a Unity multiplayer tower defence game, made with hexagons in mind. Thi
 
 This is the client code, the Node.js server is over at my repo [UnityServer](https://github.com/J0m1ty/UnityServer).
 
-# Instructions
-Windows builds will be available when the game is more finished. WebGL soon after that, hopefully.
+# Builds
+Windows builds will be available when the game is more finished. WebGL soon after that, hopefully. 
