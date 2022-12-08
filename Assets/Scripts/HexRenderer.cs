@@ -21,18 +21,32 @@ public struct Face
 [RequireComponent(typeof(MeshRenderer))]
 public class HexRenderer : MonoBehaviour
 {
-    private Mesh m_mesh;
+    public Mesh m_mesh { get; private set; }
     private MeshFilter m_meshFilter;
     private MeshRenderer m_meshRenderer;
-
     private List<Face> m_faces;
 
+    [Header("Hex Info")]
     public Material material;
     public Color hexColor;
     public float innerSize;
     public float outerSize;
     public float height;
     public bool isFlatTopped;
+
+    [Header("Game Info")]
+    public int index;
+    
+    public TurretScript turret;
+
+    public Vector3 position {
+        get {
+            return transform.position;
+        }
+        private set {
+            transform.position = value;
+        }
+    }
 
     private void Awake() {
         m_meshFilter = GetComponent<MeshFilter>();
@@ -68,6 +82,10 @@ public class HexRenderer : MonoBehaviour
     }
 
     public void SetMaterial(Material material) {
+        if (material == null) {
+            return;
+        }
+
         this.material = material;
         m_meshRenderer.material = material;
     }

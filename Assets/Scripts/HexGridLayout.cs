@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using MyBox;
 
+[System.Serializable]
 public enum GridType
 {
     Square,
@@ -30,12 +31,17 @@ public class HexGridLayout : MonoBehaviour
     [ConditionalField("hasUniformHeight", false, true)]
     public float height;
     [ConditionalField("hasUniformHeight", false, false)]
-    public Vector2 heightRange;
+    public MinMaxFloat heightRange;
     [ConditionalField("hasUniformHeight", false, false)]
     public float noiseMult;
+    [ConditionalField("hasUniformHeight", false, false)]
+    public MinMaxFloat mountainHeightRange;
+    [ConditionalField("hasUniformHeight", false, false)]
+    public float mountainNoiseMult;
 
     // Limit mirroring
     private float noiseOffset = 10_000f;
+    private float mountainNoiseOffset = 20_000f;
 
     private void OnEnable() {
         switch (gridType) {
@@ -53,7 +59,8 @@ public class HexGridLayout : MonoBehaviour
         {
             for (int x = 0; x < gridSize.x; x++)
             {
-                AddHex($"Tile {x}, {y}", GetPositionForHexFromCoordinates(new Vector2Int(x, y)));
+                int i = x + y * gridSize.x;
+                AddHex($"Tile {x}, {y}", i, GetPositionForHexFromCoordinates(new Vector2Int(x, y)));
             }
         }
     }
@@ -102,6 +109,42 @@ public class HexGridLayout : MonoBehaviour
         return new Vector3(xPosition, 0f, -yPosition);
     }
 
+    public bool WorldPosToHex(Vector3 pos, out HexRenderer outHex, out int? outIndex) {
+        var worldPos = new Vector2(pos.x, pos.z);
+
+        float minDist = float.MaxValue;
+        HexRenderer closestHex = null;
+        int closestIndex = -1;
+        foreach (var hex in GetComponentsInChildren<HexRenderer>()) {
+            var dist = Vector2.Distance(worldPos, new Vector2(hex.transform.position.x, hex.transform.position.z));
+            if (dist < minDist) {
+                minDist = dist;
+                closestHex = hex;
+                closestIndex = hex.index;
+            }
+        }
+
+        if (closestHex == null) {
+            outHex = null;
+            outIndex = null;
+            return false;
+        }
+        else {
+            outHex = closestHex;
+            outIndex = closestIndex;
+            return true;
+        }
+    }
+
+    public HexRenderer GetHex(int index) {
+        foreach (var hex in GetComponentsInChildren<HexRenderer>()) {
+            if (hex.index == index) {
+                return hex;
+            }
+        }
+        return null;
+    }
+
     private void HexagonGrid() {
         int GetRadius(int i) {
             return (int)Mathf.Floor((3f + Mathf.Sqrt(12f * i - 3f)) / 6f);
@@ -131,7 +174,7 @@ public class HexGridLayout : MonoBehaviour
                     direction = Mod(direction + 1, 6);
                 }
 
-                AddHex($"Hex {i}", new Vector3(drawPointer.x, 0f, drawPointer.y));
+                AddHex($"Hex {i}", i, new Vector3(drawPointer.x, 0f, drawPointer.y));
 
                 float theta = direction * Mathf.PI / 3f + (isFlatTopped ? Mathf.PI / 6f : 0f);
                 drawPointer.x += outerSize * Mathf.Cos(theta) * Mathf.Sqrt(3);
@@ -144,9 +187,10 @@ public class HexGridLayout : MonoBehaviour
         }
     }
 
-    private void AddHex(string name, Vector3 position) {
+    private void AddHex(string name, int index, Vector3 position) {
         GameObject tile = new GameObject(name, typeof(HexRenderer));
         tile.transform.position = position;
+        tile.layer = 8;
         
         HexRenderer hexRenderer = tile.GetComponent<HexRenderer>();
 
@@ -154,16 +198,29 @@ public class HexGridLayout : MonoBehaviour
         hexMaterial.CopyPropertiesFromMaterial(material);
 
         var noise01 = Mathf.Clamp01(Mathf.PerlinNoise(noiseOffset + position.x * noiseMult, noiseOffset + position.z * noiseMult));
-        var hexHeight = hasUniformHeight ? height : Mathf.Lerp(heightRange.x, heightRange.y, noise01);
+        var noiseHeight = hasUniformHeight ? height : Mathf.Lerp(heightRange.Min, heightRange.Max, noise01);
 
-        hexMaterial.color = gradient.Evaluate(noise01);
+        var mountainNoise = Mathf.Clamp01(Mathf.PerlinNoise(mountainNoiseOffset + position.x * mountainNoiseMult, mountainNoiseOffset + position.z * mountainNoiseMult));
+        var mountainHeight = hasUniformHeight ? height : Mathf.Lerp(mountainHeightRange.Min, mountainHeightRange.Max, mountainNoise);
+        
+        var hexHeight = Mathf.Lerp(noiseHeight, mountainHeight, 0.5f);
+        var hexNoise = Mathf.Lerp(noise01, mountainNoise, 0.5f);
+
+        tile.transform.position += new Vector3(0f, hexHeight / 2f, 0f);
+
+        hexMaterial.color = gradient.Evaluate(hexNoise);
         hexRenderer.height = hexHeight;
+
+        hexRenderer.index = index;
 
         hexRenderer.isFlatTopped = isFlatTopped;
         hexRenderer.outerSize = outerSize;
         hexRenderer.innerSize = innerSize;
         hexRenderer.SetMaterial(hexMaterial);
         hexRenderer.DrawMesh();
+        
+        MeshCollider meshCollider = tile.AddComponent<MeshCollider>();
+        meshCollider.sharedMesh = hexRenderer.m_mesh;
 
         tile.transform.SetParent(transform, true);
     }

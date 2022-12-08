@@ -16,6 +16,8 @@ public class Communicator : MonoBehaviour
     public Transform userTextContent;
     public GameObject userTextPrefab;
 
+    public int welcomes = 0;
+
     [Header("Room Settings")]
     public GameObject roomInfo;
     public TMP_InputField roomIdDisplay;
@@ -28,13 +30,15 @@ public class Communicator : MonoBehaviour
     {
         UpdateName();
 
+        welcomes = 0;
+
         if (mainScene) {
             this.JoinRoom(WSClient.instance.mainRoomId);
         }
     }
 
     public void UpdateName() {
-        var name = WSClient.instance.player?.username;
+        var name = WSClient.instance?.player?.username;
 
         if (!nameText) return;
 
@@ -67,6 +71,10 @@ public class Communicator : MonoBehaviour
         WSClient.instance.Continue();
     }
 
+    public void StartMatch() {
+        WSClient.instance.StartMatch();
+    }
+
     public void SubmitMessage() {
         var message = inputField.text;
 
@@ -83,6 +91,11 @@ public class Communicator : MonoBehaviour
 
     public void WriteMessage(string username, string message, string hex = "#FFFFFF") {
         if (textContent == null || textPrefab == null) return;
+        
+        if (username == "Server" && message.StartsWith("Welcome")) {
+            welcomes++;
+            if (welcomes > 1) return;
+        }
         
         var text = Instantiate(textPrefab, textContent);
         text.GetComponent<TextMeshProUGUI>().text = $"<color={hex}>{username}: {message}</color>";

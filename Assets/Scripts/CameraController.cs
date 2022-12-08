@@ -71,14 +71,21 @@ public class CameraController : MonoBehaviour
     void LateUpdate() {
         cameraChild.transform.LookAt(transform.position);
 
-        if (WSClient.isInputEnabled) {
-            HandleMovementInput();
-            HandleMouseInput();
+        if (WSClient.isInputEnabled && (GameManager.instance?.pauseGameInput.camera ?? true)) {
+            if (GameManager.instance?.pauseGameInput.mouse ?? true) {
+                HandleMouseInput();
+            }
+            if (GameManager.instance?.pauseGameInput.keyboard ?? true) {
+                HandleKeyboardInput();
+            }
         }
+        
+        float offset = Mathf.Lerp(angleOffset[0], angleOffset[1], Mathf.InverseLerp(zoomRange.Min, zoomRange.Max, cameraChild.transform.localPosition.magnitude - distanceOffset));
+        cameraChild.transform.rotation *= Quaternion.AngleAxis(offset, Vector3.right);
     }
 
     void HandleMouseInput() {
-        if (Input.mouseScrollDelta.y != 0) {
+        if (Input.mouseScrollDelta.y != 0 && (GameManager.instance?.pauseGameInput.scroll ?? true)) {
             newZoom += Input.mouseScrollDelta.y * zoomAmount;
         }
 
@@ -118,7 +125,7 @@ public class CameraController : MonoBehaviour
         }
     }
 
-    void HandleMovementInput() {
+    void HandleKeyboardInput() {
         if (Input.GetKey(KeyCode.LeftShift)) {
             movementSpeed = speedRange.Max;
         } else {
@@ -159,8 +166,5 @@ public class CameraController : MonoBehaviour
         transform.position = Vector3.Lerp(transform.position, newPosition, Time.deltaTime * movementTime);
         transform.rotation = Quaternion.Lerp(transform.rotation, newRotation, Time.deltaTime * movementTime);
         cameraChild.transform.localPosition = Vector3.Lerp(cameraChild.transform.localPosition, newZoom, Time.deltaTime * movementTime);
-
-        float offset = Mathf.Lerp(angleOffset[0], angleOffset[1], Mathf.InverseLerp(zoomRange.Min, zoomRange.Max, cameraChild.transform.localPosition.magnitude - distanceOffset));
-        cameraChild.transform.rotation *= Quaternion.AngleAxis(offset, Vector3.right);
     }
 }
