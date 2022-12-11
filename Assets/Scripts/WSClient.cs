@@ -355,18 +355,78 @@ public class WSClient : MonoBehaviour
             WSClient.instance.AddJob(async () => {
                 Debug.Log("allReady: " + response.ToString());
 
+                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
+                    error = string.Empty,
+                    data = new Dictionary<string, string>(),
+                    bases = new Dictionary<string, int>(),
+                    users = new List<Dictionary<string, string>>()
+                });
+
+                // error : string
+                // data : {roomId: string }
+                // bases : {friendlyBase: int, enemyBase: int}
+                // users : [{username: string}]
+
                 if (SceneManager.GetActiveScene().name != gameScene) {
                     return;
                 }
-                
-                await Task.Delay(2000);
 
-                GameManager.instance.DisablePopup(GameManager.instance.waitingPopupPrefab);
+                if (!string.IsNullOrEmpty(result.error)) {
+                    Debug.Log("allReady err " + result.error);
+                } else {
+                    UpdateUsernames(result.data["roomId"], result.users);
 
-                StartCoroutine(StartTransition(seconds: 3, callback: () => {
-                    GameManager.instance.pauseGameInput.Set(true);
-                    Debug.Log("enable input");
-                }));
+                    int friendly = result.bases["friendlyBase"];
+                    int enemy = result.bases["enemyBase"];
+
+                    GameManager.instance.SetBases(friendly: friendly, enemy: enemy);
+
+                    await Task.Delay(2000);
+
+                    StartCoroutine(StartTransition(seconds: 3, callback: () => {
+                        Debug.Log("enable input");
+                        GameManager.instance.DisablePopup(GameManager.instance.waitingPopupPrefab);
+                    }));
+                }
+            });
+        });
+
+        /** setTowers event **/
+        socket.On("setTowers", (response) => {
+            WSClient.instance.AddJob(() => {
+                Debug.Log("setTowers: " + response.ToString());
+                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
+                    error = string.Empty,
+                    data = new Dictionary<string, string>(),
+                    towerData = new List<Dictionary<string, int>>(),
+                    users = new List<Dictionary<string, string>>()
+                });
+
+                // error : string
+                // data : {roomId: string}
+                // towerData: [{index: int, team: int, type: int}]
+                // users : [{username: string}]
+
+                if (result?.data?["roomId"] != currentRoomId) {
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(result.error)) {
+                    Debug.Log("setTowers err " + result.error);
+                } else {
+                    Debug.Log("setTowers data " + result.data.ToString());
+
+                    UpdateUsernames(result.data["roomId"], result.users);
+
+                    var easyTowers = new List<EasyTower>();
+
+                    foreach (var tower in result.towerData) {
+                        var easyTower = new EasyTower(tower["index"], (TowerType)tower["type"], (TeamType)tower["team"]);
+                        easyTowers.Add(easyTower);
+                    }
+
+                    GameManager.instance.UpdateTowers(easyTowers, true);
+                }
             });
         });
     }
@@ -612,6 +672,58 @@ public class WSClient : MonoBehaviour
         }, new { roomId = roomId, message = message });
     }
 
+    public async void EmitTowers(List<EasyTower> towers) {
+        if (SceneManager.GetActiveScene().name != gameScene) {
+            return;
+        }
+
+        if (towers.Count == 0) {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(currentRoomId)) {
+            Debug.Log("No room id");
+            return;
+        }
+
+        var towerData = new List<Dictionary<string, string>>();
+
+        foreach (var t in towers) {
+            towerData.Add(new Dictionary<string, string>() {
+                { "index", t.index.ToString() },
+                { "team", t.team.ToString() },
+                { "type", t.type.ToString() },
+            });
+        }
+
+        await socket.EmitAsync("towers", (response) => {
+            WSClient.instance.AddJob(() => {
+                Debug.Log("towers callback: " + response.ToString());
+                var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
+                    error = string.Empty,
+                    data = new Dictionary<string, string>(),
+                    users = new List<Dictionary<string, string>>()
+                });
+
+                // error : string
+                // data : {roomId: string}
+                // users : [{username: string}]
+
+                if (result?.data?["roomId"] != currentRoomId) {
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(result.error)) {
+                    Debug.Log("towers callback err " + result.error);
+                } else {
+                    Debug.Log("towers callback data " + result.data.ToString());
+
+                    UpdateUsernames(result.data["roomId"], result.users);
+                }
+            });
+        }, new { roomId = currentRoomId, towerData = towerData });
+    }
+
     private void UpdateUsernames(string targetRoom, List<Dictionary<string, string>> users) {
         Debug.Log("target " + targetRoom + " ||| current " + currentRoomId);
 
@@ -719,8 +831,7 @@ public class WSClient : MonoBehaviour
             }
 
             var savedId = saved.id;
-            var savedUsername = saved.username;
-            var savedColor = saved.color;
+            var savedUsername = saved.username; 
 
             await Auth(
                 a_Username: savedUsername, 

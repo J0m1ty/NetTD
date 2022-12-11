@@ -71,13 +71,9 @@ public class CameraController : MonoBehaviour
     void LateUpdate() {
         cameraChild.transform.LookAt(transform.position);
 
-        if (WSClient.isInputEnabled && (GameManager.instance?.pauseGameInput.camera ?? true)) {
-            if (GameManager.instance?.pauseGameInput.mouse ?? true) {
-                HandleMouseInput();
-            }
-            if (GameManager.instance?.pauseGameInput.keyboard ?? true) {
-                HandleKeyboardInput();
-            }
+        if (WSClient.isInputEnabled) {
+            HandleMouseInput();
+            HandleKeyboardInput();
         }
         
         float offset = Mathf.Lerp(angleOffset[0], angleOffset[1], Mathf.InverseLerp(zoomRange.Min, zoomRange.Max, cameraChild.transform.localPosition.magnitude - distanceOffset));
@@ -85,7 +81,7 @@ public class CameraController : MonoBehaviour
     }
 
     void HandleMouseInput() {
-        if (Input.mouseScrollDelta.y != 0 && (GameManager.instance?.pauseGameInput.scroll ?? true)) {
+        if (Input.mouseScrollDelta.y != 0) {
             newZoom += Input.mouseScrollDelta.y * zoomAmount;
         }
 

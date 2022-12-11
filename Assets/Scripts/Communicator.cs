@@ -82,7 +82,7 @@ public class Communicator : MonoBehaviour
 
         WSClient.instance.EmitMessage(message);
 
-        WriteMessage(WSClient.instance.player?.username, message, WSClient.instance.player?.color);
+        WriteMessage(WSClient.instance.player?.username, message, WSClient.instance.player?.usernameColor);
 
         inputField.text = "";
 

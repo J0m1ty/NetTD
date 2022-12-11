@@ -7,13 +7,13 @@ public class PlayerData
 {
     public string id;
     public string username;
-    public string color;
+    public string usernameColor;
 
-    public PlayerData(string a_Id, string a_Name, string a_Color)
+    public PlayerData(string a_Id, string a_Name, string a_UsernameColor)
     {
         this.id = a_Id;
         this.username = a_Name;
-        this.color = a_Color;
+        this.usernameColor = a_UsernameColor;
     }
 
     public PlayerData(string json) {

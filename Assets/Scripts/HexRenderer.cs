@@ -1,8 +1,6 @@
 
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System;
 
 public struct Face 
 {
@@ -21,10 +19,10 @@ public struct Face
 [RequireComponent(typeof(MeshRenderer))]
 public class HexRenderer : MonoBehaviour
 {
-    public Mesh m_mesh { get; private set; }
-    private MeshFilter m_meshFilter;
-    private MeshRenderer m_meshRenderer;
-    private List<Face> m_faces;
+    public Mesh mesh { get; private set; }
+    private MeshFilter meshFilter;
+    private MeshRenderer meshRenderer;
+    private List<Face> faces;
 
     [Header("Hex Info")]
     public Material material;
@@ -34,42 +32,33 @@ public class HexRenderer : MonoBehaviour
     public float height;
     public bool isFlatTopped;
 
-    [Header("Game Info")]
-    public int index;
-    
-    public TurretScript turret;
-
-    public Vector3 position {
-        get {
-            return transform.position;
-        }
-        private set {
-            transform.position = value;
-        }
-    }
+    [Header("Map Intergration")]
+    public GridUnit gridRef;
 
     private void Awake() {
-        m_meshFilter = GetComponent<MeshFilter>();
-        m_meshRenderer = GetComponent<MeshRenderer>();
+        meshFilter = GetComponent<MeshFilter>();
+        meshRenderer = GetComponent<MeshRenderer>();
 
-        m_mesh = new Mesh();
-        m_mesh.name = "Hex";
+        mesh = new Mesh();
+        mesh.name = "Hex";
 
-        m_meshFilter.mesh = m_mesh;
+        meshFilter.mesh = mesh;
 
         if (hexColor != null) {
-            Material hexMaterial = new Material(Shader.Find("Standard"));
-            if (material != null) {
-                hexMaterial.CopyPropertiesFromMaterial(this.material);
+            if (material == null) {
+                material = new Material(Shader.Find("Standard"));
+            } else {
+                material = new Material(material); 
             }
-            
-            hexMaterial.color = hexColor;
+            material.color = hexColor;
+        }
 
-            SetMaterial(hexMaterial);
-        }
-        else {
-            SetMaterial(material);
-        }
+        SetMaterial(material);
+    }
+
+    public void SetMaterial(Material newMaterial) {
+        material = newMaterial;
+        meshRenderer.material = material;
     }
     
     private void OnEnable() {
@@ -81,41 +70,31 @@ public class HexRenderer : MonoBehaviour
         CombineFaces();
     }
 
-    public void SetMaterial(Material material) {
-        if (material == null) {
-            return;
-        }
-
-        this.material = material;
-        m_meshRenderer.material = material;
-    }
-
     private void DrawFaces() {
-        m_faces = new List<Face>();
+        faces = new List<Face>();
 
         // Top faces
         for (int point = 0; point < 6; point++) {
-            m_faces.Add(CreateFace(innerSize, outerSize, height / 2f, height / 2f, point));
+            faces.Add(CreateFace(innerSize, outerSize, height / 2f, height / 2f, point));
         }
 
         // Bottom faces
         for (int point = 0; point < 6; point++) {
-            m_faces.Add(CreateFace(innerSize, outerSize, - height / 2f, - height / 2f, point, true));
+            faces.Add(CreateFace(innerSize, outerSize, - height / 2f, - height / 2f, point, true));
         }
 
         // Outer faces
         for (int point = 0; point < 6; point++) {
-            m_faces.Add(CreateFace(outerSize, outerSize, height / 2f, - height / 2f, point, true));
+            faces.Add(CreateFace(outerSize, outerSize, height / 2f, - height / 2f, point, true));
         }
 
         // Inner faces
         for (int point = 0; point < 6; point++) {
-            m_faces.Add(CreateFace(innerSize, innerSize, height / 2f, - height / 2f, point));
+            faces.Add(CreateFace(innerSize, innerSize, height / 2f, - height / 2f, point));
         }
     }
 
     private Face CreateFace(float innerRad, float outerRad, float heightA, float heightB, int point, bool reverse = false) {
-
         Vector3 pointA = GetPoint(innerRad, heightB, point);
         Vector3 pointB = GetPoint(innerRad, heightB, (point < 5) ? point + 1 : 0);
         Vector3 pointC = GetPoint(outerRad, heightA, (point < 5) ? point + 1 : 0);
@@ -143,22 +122,22 @@ public class HexRenderer : MonoBehaviour
         List<int> triangles = new List<int>();
         List<Vector2> uvs = new List<Vector2>();
 
-        for (int i = 0; i < m_faces.Count; i++) {
+        for (int i = 0; i < faces.Count; i++) {
             // Add verticies
-            vertices.AddRange(m_faces[i].vertices);
-            uvs.AddRange(m_faces[i].uvs);
+            vertices.AddRange(faces[i].vertices);
+            uvs.AddRange(faces[i].uvs);
 
             // Offset triangles
             int offset = (4 * i);
-            foreach (int triangle in m_faces[i].triangles) {
+            foreach (int triangle in faces[i].triangles) {
                 triangles.Add(triangle + offset);
             }
         }
 
-        m_mesh.vertices = vertices.ToArray();
-        m_mesh.triangles = triangles.ToArray();
-        m_mesh.uv = uvs.ToArray();
-        m_mesh.RecalculateNormals();
-        m_mesh.RecalculateBounds();
+        mesh.vertices = vertices.ToArray();
+        mesh.triangles = triangles.ToArray();
+        mesh.uv = uvs.ToArray();
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
     }
 }
