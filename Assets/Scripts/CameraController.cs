@@ -33,6 +33,7 @@ public class CameraController : MonoBehaviour
 
     [Header("Movement Settings")]
     public MinMaxFloat speedRange;
+    public float maxDist;
 
     [Header("Rotation Settings")]
     public float rotationAmount;
@@ -84,6 +85,10 @@ public class CameraController : MonoBehaviour
         newZoom = newZoom.normalized * Mathf.Clamp(newZoom.magnitude, zoomRange.Min + distanceOffset, zoomRange.Max + distanceOffset);
 
         transform.position = Vector3.Lerp(transform.position, newPosition, Time.deltaTime * movementTime);
+        // constrain transform.position and newPosition to 100 units from the origin
+        transform.position = new Vector3(Mathf.Clamp(transform.position.x, -maxDist, maxDist), Mathf.Clamp(transform.position.y, -maxDist, maxDist), Mathf.Clamp(transform.position.z, -maxDist, maxDist));
+        newPosition = new Vector3(Mathf.Clamp(newPosition.x, -maxDist, maxDist), Mathf.Clamp(newPosition.y, -maxDist, maxDist), Mathf.Clamp(newPosition.z, -maxDist, maxDist));
+
         transform.rotation = Quaternion.Lerp(transform.rotation, newRotation, Time.deltaTime * movementTime);
         cameraChild.transform.localPosition = Vector3.Lerp(cameraChild.transform.localPosition, newZoom, Time.deltaTime * movementTime);
 
@@ -141,18 +146,26 @@ public class CameraController : MonoBehaviour
             movementSpeed = speedRange.Min;
         }
 
+        Vector3 positionMod = Vector3.zero;
+
         if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) {
-            newPosition += transform.forward * movementSpeed;
+            positionMod += transform.forward * movementSpeed;
         }
         if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) {
-            newPosition += transform.forward * -movementSpeed;
+            positionMod += transform.forward * -movementSpeed;
         }
         if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) {
-            newPosition += transform.right * -movementSpeed;
+            positionMod += transform.right * -movementSpeed;
         }
         if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) {
-            newPosition += transform.right * movementSpeed;
+            positionMod += transform.right * movementSpeed;
         }
+        
+        if (positionMod != Vector3.zero) {
+            positionMod = positionMod.normalized * movementSpeed;
+        }
+
+        newPosition += positionMod;
 
         if (Input.GetKey(KeyCode.Q)) {
             newRotation *= Quaternion.Euler(Vector3.up * rotationAmount);
