@@ -80,9 +80,9 @@ public class Communicator : MonoBehaviour
 
         if (string.IsNullOrEmpty(message)) return;
 
-        WSClient.instance.EmitMessage(message);
+        WSClient.instance?.EmitMessage(message);
 
-        WriteMessage(WSClient.instance.player?.username, message, WSClient.instance.player?.usernameColor);
+        WriteMessage(WSClient.instance?.player?.username, message, WSClient.instance?.player?.usernameColor);
 
         inputField.text = "";
 
@@ -91,6 +91,9 @@ public class Communicator : MonoBehaviour
 
     public void WriteMessage(string username, string message, string hex = "#FFFFFF") {
         if (textContent == null || textPrefab == null) return;
+
+        hex = hex ?? "#FFFFFF";
+        username = username ?? "Username";
         
         if (username == "Server" && message.StartsWith("Welcome")) {
             welcomes++;

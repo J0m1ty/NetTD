@@ -43,9 +43,12 @@ public class CameraController : MonoBehaviour
     public Vector2 angleOffset;
 
     private float movementSpeed;
-    private Vector3 newPosition;
-    private Quaternion newRotation;
-    private Vector3 newZoom;
+    [HideInInspector]
+    public Vector3 newPosition;
+    [HideInInspector]
+    public Quaternion newRotation;
+    [HideInInspector]
+    public Vector3 newZoom;
 
     private Vector3 dragStartPosition;
     private Vector3 dragCurrentPosition;
@@ -69,13 +72,23 @@ public class CameraController : MonoBehaviour
     }
 
     void LateUpdate() {
+        if (WSClient.isInputEnabled) {
+            if (GameManager.instance?.lockMouse == false) {
+                HandleMouseInput();
+            }
+            if (GameManager.instance?.lockKeyboard == false) {
+                HandleKeyboardInput();
+            }
+        }
+
+        newZoom = newZoom.normalized * Mathf.Clamp(newZoom.magnitude, zoomRange.Min + distanceOffset, zoomRange.Max + distanceOffset);
+
+        transform.position = Vector3.Lerp(transform.position, newPosition, Time.deltaTime * movementTime);
+        transform.rotation = Quaternion.Lerp(transform.rotation, newRotation, Time.deltaTime * movementTime);
+        cameraChild.transform.localPosition = Vector3.Lerp(cameraChild.transform.localPosition, newZoom, Time.deltaTime * movementTime);
+
         cameraChild.transform.LookAt(transform.position);
 
-        if (WSClient.isInputEnabled) {
-            HandleMouseInput();
-            HandleKeyboardInput();
-        }
-        
         float offset = Mathf.Lerp(angleOffset[0], angleOffset[1], Mathf.InverseLerp(zoomRange.Min, zoomRange.Max, cameraChild.transform.localPosition.magnitude - distanceOffset));
         cameraChild.transform.rotation *= Quaternion.AngleAxis(offset, Vector3.right);
     }
@@ -156,11 +169,5 @@ public class CameraController : MonoBehaviour
                 newZoom -= zoomAmount;
             }
         }
-        
-        newZoom = newZoom.normalized * Mathf.Clamp(newZoom.magnitude, zoomRange.Min + distanceOffset, zoomRange.Max + distanceOffset);
-
-        transform.position = Vector3.Lerp(transform.position, newPosition, Time.deltaTime * movementTime);
-        transform.rotation = Quaternion.Lerp(transform.rotation, newRotation, Time.deltaTime * movementTime);
-        cameraChild.transform.localPosition = Vector3.Lerp(cameraChild.transform.localPosition, newZoom, Time.deltaTime * movementTime);
     }
 }

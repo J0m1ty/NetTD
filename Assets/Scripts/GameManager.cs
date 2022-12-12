@@ -6,6 +6,7 @@ using UnityEngine;
 public enum TowerType {
     Base = 0,
     Gun = 1,
+    Miner = 2,
 }
 
 public enum TeamType {
@@ -17,110 +18,25 @@ public class EasyTower {
     public int index;
     public TowerType type;
     public TeamType team;
+    public float baseRotation;
 
-    public EasyTower(int index, TowerType type, TeamType team) {
+    public EasyTower(int index, TowerType type, TeamType team, float baseRotation) {
         this.index = index;
         this.type = type;
         this.team = team;
+        this.baseRotation = baseRotation;
     }
 }
 
-public abstract class Tower {
-    public GameObject towerObject;
-    public GridUnit hexRef;
-    public TeamInfo team;
-    public TowerType type;
+public class PersonalInfo {
+    public int money;
+    public int life;
+    public static int maxLife = 100;
+    public int productionRate = 1;
 
-    protected Tower(GameObject towerObject, GridUnit hexRef, TeamInfo team, TowerType type) {
-        this.towerObject = towerObject;
-        this.hexRef = hexRef;
-        this.team = team;
-        this.type = type;
-    }
-}
-
-public class BaseTower : Tower {
-    private Transform towerBase;
-    
-    public BaseTower(GameObject baseObject, GridUnit hexRef, TeamInfo team) : base(baseObject, hexRef, team, TowerType.Base) {
-        towerBase = towerObject.transform.Find("TowerBase");
-        
-        towerObject.transform.position = hexRef.hexRenderer.transform.position;
-
-        towerObject?.GetComponent<Colorizer>().SetAllColor(team.Color);
-        
-        var originPos = GameManager.instance.map.GetHexFromIndex(0).hexRenderer.transform.position;
-        var newRotation = Quaternion.LookRotation(new Vector3(originPos.x, 0, originPos.z) - new Vector3(towerObject.transform.position.x, 0, towerObject.transform.position.z));
-
-        towerObject.transform.rotation = Quaternion.Euler(0, Mathf.Round(newRotation.eulerAngles.y / 60f) * 60f + (GameManager.instance.map.isFlatTopped ? 0f : 30f), 0);
-    }
-}
-
-public class GunTower : Tower {
-    private Transform turretGun;
-    private Transform turretBase;
-
-    private Vector3? gunTarget;
-    private Vector3? baseTarget;
-
-    private Quaternion gunRotation;
-    private Quaternion baseRotation;
-
-    private float rotationSpeed;
-
-    public GunTower(GameObject turretObject, GridUnit hexRef, TeamInfo team) : base(turretObject, hexRef, team, TowerType.Gun) {
-        turretGun = towerObject.transform.Find("TurretGun");
-        turretBase = towerObject.transform.Find("TurretBase");
-        
-        towerObject.transform.position = hexRef.hexRenderer.transform.position + Vector3.up * hexRef.hexRenderer.height/2f;
-
-        var originPos = GameManager.instance.map.GetHexFromIndex(GameManager.instance.friendlyBaseIndex).hexRenderer.transform.position;
-        var newRotation = Quaternion.LookRotation(new Vector3(towerObject.transform.position.x, 0, towerObject.transform.position.z) - new Vector3(originPos.x, 0, originPos.z));
-
-        towerObject.transform.rotation = Quaternion.Euler(0, Mathf.Round(newRotation.eulerAngles.y / 60f) * 60f + (GameManager.instance.map.isFlatTopped ? 0f : 30f), 0);
-
-        towerObject?.GetComponent<Colorizer>().SetAllColor(team.Color);
-
-        gunTarget = null;
-        baseTarget = null;
-
-        gunRotation = turretGun.rotation;
-        baseRotation = turretBase.rotation;
-    }
-    
-    public void RotateTurret(Vector3 newAim, bool aimAway = false) {
-        gunTarget = new Vector3(newAim.x, 0, newAim.z);
-    }
-
-    public void RotateBase(Vector3 newAim, bool aimAway = false) {
-        baseTarget = new Vector3(newAim.x, 0, newAim.z);
-    }
-
-    public void Rotate() {
-        if (gunTarget != null) {
-            var at = new Vector3(gunTarget.Value.x, 0, gunTarget.Value.z);
-            var from = new Vector3(turretGun.position.x, 0, turretGun.position.z);
-
-            var direction = at - from;
-
-            if (direction == Vector3.zero) return;
-
-            gunRotation = Quaternion.Slerp(gunRotation, Quaternion.LookRotation(direction), Time.deltaTime * rotationSpeed);
-            turretGun.localRotation = gunRotation * Quaternion.Euler(-90, 0, 0);
-        }
-
-        if (baseTarget != null) {
-            var at = new Vector3(baseTarget.Value.x, 0, baseTarget.Value.z);
-            var from = new Vector3(turretBase.position.x, 0, turretBase.position.z);
-
-            var direction = at - from;
-
-            if (direction == Vector3.zero) return;
-
-            baseRotation = Quaternion.Slerp(baseRotation, Quaternion.LookRotation(direction), Time.deltaTime * rotationSpeed);
-            baseRotation = Quaternion.Euler(0, Mathf.Round(baseRotation.eulerAngles.y / 60f) * 60f + (GameManager.instance.map.isFlatTopped ? 0f : 30f), 0);
-            turretBase.localRotation = baseRotation * Quaternion.Euler(-90, 0, 0);
-        }
+    public PersonalInfo(int money, int life) {
+        this.money = money;
+        this.life = life;
     }
 }
 
@@ -151,13 +67,18 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
 
+    [Header("Camera Reference")]
+    public CameraController cameraRig;
+
     [Header("Pausing")]
     public GameObject pauseMenu;
     
     [Header("Popups")]
     public GameObject waitingPopupPrefab;
 
-    // input
+    [Header("Input")]
+    public bool lockKeyboard;
+    public bool lockMouse;
     private GridUnit successHex;
 
     [Header("Tower Placement")]
@@ -180,11 +101,18 @@ public class GameManager : MonoBehaviour
     public int enemyBaseIndex;
     private GameObject friendlyBase;
     private GameObject enemyBase;
+    private bool isBasesSet;
+
+    [Header("Player Info")]
+    public TMPro.TextMeshProUGUI playerHealth;
+    public TMPro.TextMeshProUGUI playerMoney;
+    public PersonalInfo playerInfo;
 
     [Header("Tower Info")]
-    public List<Tower> towers;
     public GameObject baseTowerPrefab;
     public GameObject gunTowerPrefab;
+    public GameObject minerTowerPrefab;
+    public List<Tower> towers;
     
     public GameObject GetPrefabFromType(TowerType type)
     {
@@ -194,10 +122,15 @@ public class GameManager : MonoBehaviour
                 return baseTowerPrefab;
             case TowerType.Gun:
                 return gunTowerPrefab;
+            case TowerType.Miner:
+                return minerTowerPrefab;
             default:
                 return null;
         }
     }
+
+    [HideInInspector]
+    public bool gameActive;
 
     private void Awake() {
         if (instance != null) {
@@ -206,6 +139,8 @@ public class GameManager : MonoBehaviour
         }
 
         instance = this;
+
+        isBasesSet = false;
     }
 
     private void OnEnable() {
@@ -214,18 +149,51 @@ public class GameManager : MonoBehaviour
         team = Team.Friendly;
 
         towers = new List<Tower>();
+
+        playerInfo = new PersonalInfo(10, 100);
     }
 
     private void Start() {
+        InitGame(); // also in WSClient when scene switches
+    }
+
+    public void InitGame() {
         EnablePopup(waitingPopupPrefab);
+        lockKeyboard = true;
+        lockMouse = true;
+        gameActive = false;
+    }
+
+    public void StartGame() {
+        DisablePopup(waitingPopupPrefab);
+        lockKeyboard = false;
+        lockMouse = false;
+        gameActive = true;
+    }
+
+    public void StartProduction() {
+        StartCoroutine(Production());
+    }
+
+    private IEnumerator Production() {
+        while (gameActive) {
+            yield return new WaitForSeconds(1f);
+            playerInfo.money += playerInfo.productionRate;
+        }
+        yield return null;
     }
 
     public void SetBases(int friendly, int enemy) {
         friendlyBaseIndex = friendly;
         enemyBaseIndex = enemy;
 
-        friendlyBase = PlaceTower(friendlyBaseIndex, TowerType.Base, Team.Friendly);
-        enemyBase = PlaceTower(enemyBaseIndex, TowerType.Base, Team.Enemy);
+        friendlyBase = PlaceTower(friendlyBaseIndex, TowerType.Base, Team.Friendly).towerObject;
+        enemyBase = PlaceTower(enemyBaseIndex, TowerType.Base, Team.Enemy).towerObject;
+
+        cameraRig.newPosition = new Vector3(friendlyBase.transform.position.x, 0, friendlyBase.transform.position.z);
+        cameraRig.newRotation = Quaternion.LookRotation(map.GetHexFromIndex(0).hexRenderer.transform.position - friendlyBase.transform.position);
+
+        isBasesSet = true;
     }
 
     private void Update() {
@@ -237,8 +205,16 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        if (WSClient.isInputEnabled) {
+        if (WSClient.isInputEnabled && !lockKeyboard) {
             HandleKeyboardInput();
+        }
+
+        if (playerHealth != null) {
+            playerHealth.text = $"Health: <color=#933042>{(playerInfo.life / PersonalInfo.maxLife * 100f).ToString()}%</color>";
+        }
+
+        if (playerMoney != null) {
+            playerMoney.text = $"Credits: <color=#E0BA06>{(playerInfo.money).ToString()}¢</color>";
         }
     }
 
@@ -248,10 +224,16 @@ public class GameManager : MonoBehaviour
         }
 
         if (Input.GetKeyDown(KeyCode.T)) {
-            CreatePlacementObjects();
+            DestroyPlacementObjects();
+            CreatePlacementObjects(gunTowerPrefab);
+        }
+        
+        if (Input.GetKeyDown(KeyCode.G)) {
+            DestroyPlacementObjects();
+            CreatePlacementObjects(minerTowerPrefab);
         }
 
-        if (Input.GetKey(KeyCode.T)) {
+        if (Input.GetKey(KeyCode.T) || Input.GetKey(KeyCode.G)) {
             if (placementHolder == null) return;
 
             var hex = GetHexFromWorldPosition() as GridUnit;
@@ -261,7 +243,7 @@ public class GameManager : MonoBehaviour
                 placementHolder.transform.position = hex.hexRenderer.transform.position;
 
                 if (CheckAvailability(hex)) {
-                    if (Vector3.Distance(friendlyBase.transform.position, hex.hexRenderer.transform.position) > maxDist) {
+                    if (isBasesSet && Vector3.Distance(friendlyBase.transform.position, hex.hexRenderer.transform.position) > maxDist) {
                         placementHolder.GetComponent<Colorizer>().SetAllColor(invalidPlacementColor);
                         successHex = null;
                     }
@@ -275,7 +257,7 @@ public class GameManager : MonoBehaviour
                     towerObj.transform.localPosition = height;
                     arrowObj.transform.localPosition = height + Vector3.up * arrowHoverDist;
 
-                    var newRotation = Quaternion.LookRotation(new Vector3(placementHolder.transform.position.x, 0, placementHolder.transform.position.z) - new Vector3(friendlyBase.transform.position.x, 0, friendlyBase.transform.position.z));
+                    var newRotation = isBasesSet ? Quaternion.LookRotation(new Vector3(placementHolder.transform.position.x, 0, placementHolder.transform.position.z) - new Vector3(friendlyBase.transform.position.x, 0, friendlyBase.transform.position.z)) : Quaternion.identity;
                     towerObj.transform.localRotation = Quaternion.Euler(0, Mathf.Round(newRotation.eulerAngles.y / 60f) * 60f + (map.isFlatTopped ? 0f : 30f), 0);
                     arrowObj.transform.localRotation = towerObj.transform.localRotation * Quaternion.Euler(0, 0, 90);
                 }
@@ -299,15 +281,24 @@ public class GameManager : MonoBehaviour
 
             DestroyPlacementObjects();
         }
+
+        if (Input.GetKeyUp(KeyCode.G)) {
+            if (successHex != null) {
+                var placed = PlaceTower(successHex, TowerType.Miner, team);
+                EmitTowers();
+            }
+
+            DestroyPlacementObjects();
+        }
     }
 
-    private void CreatePlacementObjects() {
+    private void CreatePlacementObjects(GameObject prefab) {
         if (placementHolder != null) return;
         
         placementHolder = new GameObject("Placement Holder", typeof(Colorizer));
         placementHolder.transform.SetParent(map.transform.parent);
         
-        towerObj = Instantiate(gunTowerPrefab, placementHolder.transform.position, Quaternion.identity, placementHolder.transform);
+        towerObj = Instantiate(prefab, placementHolder.transform.position, Quaternion.identity, placementHolder.transform);
         towerObj.GetComponent<Colorizer>().SetAllColor(validPlacementColor);
 
         arrowObj = Instantiate(arrowPrefab, placementHolder.transform.position + new Vector3(0, arrowHoverDist, 0), Quaternion.identity, placementHolder.transform);
@@ -317,9 +308,18 @@ public class GameManager : MonoBehaviour
         successHex = null;
     }
 
+    private void DestroyPlacementObjects() {
+        if (placementHolder == null) return;
+
+        Destroy(placementHolder);
+        placementHolder = null;
+        successHex = null;
+    }
+
     public void UpdateTowers(List<EasyTower> setTowers, bool force) {
         foreach (var tower in setTowers) {
-            PlaceTower(tower.index, tower.type, tower.team == TeamType.Friendly ? Team.Friendly : Team.Enemy, force);
+            var placed = PlaceTower(tower.index, tower.type, tower.team == TeamType.Friendly ? Team.Friendly : Team.Enemy, force);
+            placed.SetRotation(tower.baseRotation);
         }
 
         towers = map.towers.ToList();
@@ -329,18 +329,10 @@ public class GameManager : MonoBehaviour
         var towers = new List<EasyTower>();
 
         foreach (var tower in map.towers) {
-            towers.Add(new EasyTower(tower.hexRef.index, tower.type, tower.team == Team.Friendly ? TeamType.Friendly : TeamType.Enemy));
+            towers.Add(new EasyTower(tower.hexRef.index, tower.type, tower.team == Team.Friendly ? TeamType.Friendly : TeamType.Enemy, tower.GetRotation()));
         }
 
         WSClient.instance?.EmitTowers(towers);
-    }
-
-    private void DestroyPlacementObjects() {
-        if (placementHolder == null) return;
-
-        Destroy(placementHolder);
-        placementHolder = null;
-        successHex = null;
     }
 
     private bool CheckAvailability(GridUnit hex) {
@@ -353,11 +345,11 @@ public class GameManager : MonoBehaviour
         return true;
     }
 
-    private GameObject PlaceTower(int index, TowerType type, TeamInfo team, bool force = false) {
+    private Tower PlaceTower(int index, TowerType type, TeamInfo team, bool force = false) {
         return PlaceTower(map.GetHexFromIndex(index), type, team, force);
     }
 
-    private GameObject PlaceTower(GridUnit hex, TowerType type, TeamInfo team, bool force = false) {
+    private Tower PlaceTower(GridUnit hex, TowerType type, TeamInfo team, bool force = false) {
         if ((hex.tower != null && !force) || team == null) return null;
         
         var newTower = Instantiate(GetPrefabFromType(type), hex.hexRenderer.transform.position, Quaternion.identity) as GameObject;
@@ -367,14 +359,17 @@ public class GameManager : MonoBehaviour
                 hex.tower = new BaseTower(newTower, hex, team);
                 break;
             case TowerType.Gun:
-                hex.tower = new GunTower(newTower, hex, team);
+                hex.tower = new GunTower(newTower, hex, team, true);
+                break;
+            case TowerType.Miner:
+                hex.tower = new MinerTower(newTower, hex, team, true);
                 break;
             default:
                 return null;
         }
         
         towers.Add(hex.tower);
-        return newTower;
+        return hex.tower;
     }
 
     public static GridUnit GetHexFromWorldPosition() {
@@ -409,6 +404,16 @@ public class GameManager : MonoBehaviour
     }
 
     public void Leave() {
-        WSClient.instance.LeaveGame();
+        WSClient.instance?.LeaveGame();
+    }
+
+    public void EnableKeyboard() {
+        lockKeyboard = false;
+        Debug.Log("test enable");
+    }
+
+    public void DisableKeyboard() {
+        lockKeyboard = true;
+        Debug.Log("test disable");
     }
 }

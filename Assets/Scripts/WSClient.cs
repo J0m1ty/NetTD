@@ -384,8 +384,8 @@ public class WSClient : MonoBehaviour
                     await Task.Delay(2000);
 
                     StartCoroutine(StartTransition(seconds: 3, callback: () => {
-                        Debug.Log("enable input");
-                        GameManager.instance.DisablePopup(GameManager.instance.waitingPopupPrefab);
+                        Debug.Log("enable game");
+                        GameManager.instance.StartGame();
                     }));
                 }
             });
@@ -398,13 +398,13 @@ public class WSClient : MonoBehaviour
                 var result = JsonConvert.DeserializeAnonymousType(response.GetValue(0).ToString(), new {
                     error = string.Empty,
                     data = new Dictionary<string, string>(),
-                    towerData = new List<Dictionary<string, int>>(),
+                    towerData = new List<Dictionary<string, float>>(),
                     users = new List<Dictionary<string, string>>()
                 });
 
                 // error : string
                 // data : {roomId: string}
-                // towerData: [{index: int, team: int, type: int}]
+                // towerData: [{index: int, team: int, type: int, rotation: float}]
                 // users : [{username: string}]
 
                 if (result?.data?["roomId"] != currentRoomId) {
@@ -421,7 +421,7 @@ public class WSClient : MonoBehaviour
                     var easyTowers = new List<EasyTower>();
 
                     foreach (var tower in result.towerData) {
-                        var easyTower = new EasyTower(tower["index"], (TowerType)tower["type"], (TeamType)tower["team"]);
+                        var easyTower = new EasyTower((int)tower["index"], (TowerType)tower["type"], (TeamType)tower["team"], (float)tower["rotation"]);
                         easyTowers.Add(easyTower);
                     }
 
@@ -433,6 +433,8 @@ public class WSClient : MonoBehaviour
 
     private async void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
         if (scene.name == gameScene) {
+            GameManager.instance.InitGame();
+
             // emit ready event
             await socket.EmitAsync("ready", (response) => {
                 WSClient.instance.AddJob(() => {
@@ -693,6 +695,7 @@ public class WSClient : MonoBehaviour
                 { "index", t.index.ToString() },
                 { "team", t.team.ToString() },
                 { "type", t.type.ToString() },
+                { "rotation", t.baseRotation.ToString() }
             });
         }
 

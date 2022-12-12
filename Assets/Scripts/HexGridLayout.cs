@@ -94,6 +94,10 @@ public class GridUnit
     public Vector3 GetWorldPosition() {
         return hexRenderer.transform.position;
     }
+
+    public float Distance(GridUnit other) {
+        return Vector3.Distance(hexRenderer.transform.position, other.hexRenderer.transform.position);
+    }
 }
 
 public class HexGridLayout : MonoBehaviour
@@ -270,7 +274,7 @@ public class HexGridLayout : MonoBehaviour
         hexRenderer.isFlatTopped = isFlatTopped;
         
         hexRenderer.DrawMesh();
-
+        
         hexes.Add(new GridUnit(index, hexRenderer));
         
         MeshCollider meshCollider = tile.AddComponent<MeshCollider>();
