@@ -1,6 +1,8 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 public enum TowerType {
@@ -31,12 +33,28 @@ public class EasyTower {
 public class PersonalInfo {
     public int money;
     public int life;
-    public static int maxLife = 100;
-    public int productionRate = 1;
+    public int productionRate;
 
-    public PersonalInfo(int money, int life) {
+    public static int initialProductionRate = 10;
+    public static int maxLife = 100;
+    public int totalMoney;
+
+    public PersonalInfo(int money, int life, int? productionRate) {
+        totalMoney = 0;
+
         this.money = money;
         this.life = life;
+        this.productionRate = productionRate ?? initialProductionRate;
+
+        totalMoney += money;
+    }
+
+    public Dictionary<string, string> ToDictionary() {
+        return new Dictionary<string, string>() {
+            { "money", money.ToString() },
+            { "life", life.ToString() },
+            { "production", productionRate.ToString() },
+        };
     }
 }
 
@@ -61,11 +79,24 @@ public class Team
     {
         return team == Friendly ? Enemy : Friendly;
     }
+
+    public static bool IsFriendly(TeamInfo team)
+    {
+        return team == Friendly;
+    }
+
+    public static bool IsEnemy(TeamInfo team)
+    {
+        return team == Enemy;
+    }
 }
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
+
+    [Header("Quality")]
+    public float quality;
 
     [Header("Camera Reference")]
     public CameraController cameraRig;
@@ -74,7 +105,10 @@ public class GameManager : MonoBehaviour
     public GameObject pauseMenu;
     
     [Header("Popups")]
+    public GameObject loadingPopupPrefab;
     public GameObject waitingPopupPrefab;
+    public GameObject gameOverPopupPrefab;
+    private GameObject[] popups;
 
     [Header("Input")]
     public bool lockKeyboard;
@@ -107,6 +141,9 @@ public class GameManager : MonoBehaviour
     public TMPro.TextMeshProUGUI playerHealth;
     public TMPro.TextMeshProUGUI playerMoney;
     public PersonalInfo playerInfo;
+    public PersonalInfo enemyInfo;
+    [HideInInspector]
+    public bool gameActive;
 
     [Header("Tower Info")]
     public GameObject baseTowerPrefab;
@@ -129,9 +166,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    [HideInInspector]
-    public bool gameActive;
-
     private void Awake() {
         if (instance != null) {
             Destroy(gameObject);
@@ -139,25 +173,38 @@ public class GameManager : MonoBehaviour
         }
 
         instance = this;
-
-        isBasesSet = false;
     }
 
     private void OnEnable() {
-        map.Generate();
+        isBasesSet = false;
+
+        popups = new GameObject[] { loadingPopupPrefab, waitingPopupPrefab, gameOverPopupPrefab };
 
         team = Team.Friendly;
 
         towers = new List<Tower>();
 
-        playerInfo = new PersonalInfo(10, 100);
+        playerInfo = new PersonalInfo(10, 100, null);
+        
+        StartCoroutine(GameSequence());
     }
 
-    private void Start() {
-        InitGame(); // also in WSClient when scene switches
+    private IEnumerator GameSequence() {
+        EnablePopup(loadingPopupPrefab);
+
+        yield return new WaitForSeconds(0.1f);
+
+        map.Generate();
+
+        yield return new WaitForSeconds(1f);
+        
+        InitGame();
+
+        WSClient.instance?.IsReady();
     }
 
     public void InitGame() {
+        DisablePopups();
         EnablePopup(waitingPopupPrefab);
         lockKeyboard = true;
         lockMouse = true;
@@ -165,10 +212,24 @@ public class GameManager : MonoBehaviour
     }
 
     public void StartGame() {
-        DisablePopup(waitingPopupPrefab);
+        DisablePopups();
         lockKeyboard = false;
         lockMouse = false;
         gameActive = true;
+
+        StartProduction();
+    }
+
+    public void EndGame(bool win, string method) {
+        DisablePopups();
+        var gameOver = EnablePopup(gameOverPopupPrefab);
+        lockKeyboard = true;
+        lockMouse = true;
+        gameActive = false;
+
+        StopAllCoroutines();
+    
+        gameOver.GetComponent<GameOverGroup>().SetResult(win: win, method: method, money: playerInfo.totalMoney, life: playerInfo.life);
     }
 
     public void StartProduction() {
@@ -179,6 +240,8 @@ public class GameManager : MonoBehaviour
         while (gameActive) {
             yield return new WaitForSeconds(1f);
             playerInfo.money += playerInfo.productionRate;
+            playerInfo.totalMoney += playerInfo.productionRate;
+            EmitInfo();
         }
         yield return null;
     }
@@ -191,9 +254,31 @@ public class GameManager : MonoBehaviour
         enemyBase = PlaceTower(enemyBaseIndex, TowerType.Base, Team.Enemy).towerObject;
 
         cameraRig.newPosition = new Vector3(friendlyBase.transform.position.x, 0, friendlyBase.transform.position.z);
-        cameraRig.newRotation = Quaternion.LookRotation(map.GetHexFromIndex(0).hexRenderer.transform.position - friendlyBase.transform.position);
+        cameraRig.newRotation = Quaternion.LookRotation(map.GetHexFromIndex(enemyBaseIndex).hexRenderer.transform.position - friendlyBase.transform.position);
 
         isBasesSet = true;
+    }
+
+    public void Simplify(Transform parent, float? overrideQuality = null) {
+        var meshFilters = parent.GetComponentsInChildren<MeshFilter>();
+        foreach (MeshFilter meshFilter in meshFilters)
+        {
+            SimplifyMeshFilter(meshFilter, overrideQuality);
+        }
+    }
+
+    private void SimplifyMeshFilter(MeshFilter meshFilter, float? overrideQuality = null) {
+        if (quality >= 1) {return;}
+
+        Mesh sourceMesh = meshFilter.sharedMesh;
+        if (sourceMesh == null) {return;}
+            
+        var meshSimplifier = new UnityMeshSimplifier.MeshSimplifier();
+        meshSimplifier.Initialize(sourceMesh);
+        
+        meshSimplifier.SimplifyMesh((overrideQuality ?? quality));
+        
+        meshFilter.sharedMesh = meshSimplifier.ToMesh();
     }
 
     private void Update() {
@@ -296,7 +381,7 @@ public class GameManager : MonoBehaviour
         if (placementHolder != null) return;
         
         placementHolder = new GameObject("Placement Holder", typeof(Colorizer));
-        placementHolder.transform.SetParent(map.transform.parent);
+        placementHolder.transform.SetParent(map.transform.parent.Find("Towers"));
         
         towerObj = Instantiate(prefab, placementHolder.transform.position, Quaternion.identity, placementHolder.transform);
         towerObj.GetComponent<Colorizer>().SetAllColor(validPlacementColor);
@@ -335,6 +420,15 @@ public class GameManager : MonoBehaviour
         WSClient.instance?.EmitTowers(towers);
     }
 
+    public void UpdateInfo(PersonalInfo friendly, PersonalInfo enemy) {
+        playerInfo = friendly;
+        enemyInfo = enemy;
+    }
+
+    public void EmitInfo() {
+        WSClient.instance?.EmitInfo(playerInfo);
+    }
+
     private bool CheckAvailability(GridUnit hex) {
         if (hex.tower != null || hex.index == friendlyBaseIndex || hex.index == enemyBaseIndex) {
             placementHolder?.GetComponent<Colorizer>().SetAllColor(invalidPlacementColor);
@@ -353,7 +447,7 @@ public class GameManager : MonoBehaviour
         if ((hex.tower != null && !force) || team == null) return null;
         
         var newTower = Instantiate(GetPrefabFromType(type), hex.hexRenderer.transform.position, Quaternion.identity) as GameObject;
-        newTower.transform.SetParent(map.transform.parent);
+        newTower.transform.SetParent(map.transform.parent.Find("Towers"));
         switch (type) {
             case TowerType.Base:
                 hex.tower = new BaseTower(newTower, hex, team);
@@ -367,6 +461,8 @@ public class GameManager : MonoBehaviour
             default:
                 return null;
         }
+
+        Simplify(hex.tower.towerObject.transform, type == TowerType.Base ? quality/2f : null);
         
         towers.Add(hex.tower);
         return hex.tower;
@@ -383,19 +479,30 @@ public class GameManager : MonoBehaviour
         return null;
     }
 
-    public void EnablePopup(GameObject popup) {
+    public GameObject EnablePopup(GameObject popup) {
         var find = GameObject.Find(popup.name);
         if (!find) {
             var newPopup = Instantiate(popup, new Vector3(0, 0, 0), Quaternion.identity) as GameObject;
             newPopup.transform.SetParent(GameObject.Find("Canvas").transform, false);
             newPopup.name = popup.name;
+            return newPopup;
         }
+        return find;
     }
 
     public void DisablePopup(GameObject popup) {
         var find = GameObject.Find(popup.name);
         if (find) {
             Destroy(find);
+        }
+    }
+
+    public void DisablePopups() {
+        foreach (var popup in popups) {
+            var find = GameObject.Find(popup.name);
+            if (find) {
+                Destroy(find);
+            }
         }
     }
 

@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using MyBox;
+using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 
 [System.Serializable]
 public enum GridType
@@ -146,7 +148,7 @@ public class HexGridLayout : MonoBehaviour
     
     public void Generate(float setNoiseOffset = 10_000f) {
         noiseOffset = setNoiseOffset;
-
+        
         switch (gridType) {
             case GridType.Square:
                 SquareGrid();
@@ -155,6 +157,8 @@ public class HexGridLayout : MonoBehaviour
                 HexagonGrid();
                 break;
         }
+        
+        GameManager.instance?.Simplify(transform);
     }
 
     private void SquareGrid() {

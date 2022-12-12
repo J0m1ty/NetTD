@@ -84,7 +84,7 @@ public class GunTower : Tower {
         
         towerObject.transform.position = hexRef.hexRenderer.transform.position + Vector3.up * hexRef.hexRenderer.height/2f;
 
-        var originHex = GameManager.instance.map.GetHexFromIndex(GameManager.instance.friendlyBaseIndex);
+        var originHex = GameManager.instance.map.GetHexFromIndex(Team.IsFriendly(team) ? GameManager.instance.friendlyBaseIndex : GameManager.instance.enemyBaseIndex);
 
         towerObject?.GetComponent<Colorizer>().SetAllColor(colorByDist ? GetColorByDist(originHex, GenerateTeamGradient(), GameManager.instance.maxDist) : team.Color);
 
@@ -139,7 +139,7 @@ public class MinerTower : Tower {
         
         towerObject.transform.position = hexRef.hexRenderer.transform.position + Vector3.up * hexRef.hexRenderer.height/2f;
 
-        var originHex = GameManager.instance.map.GetHexFromIndex(0);
+        var originHex = GameManager.instance.map.GetHexFromIndex(Team.IsFriendly(team) ? GameManager.instance.friendlyBaseIndex : GameManager.instance.enemyBaseIndex);
         towerObject?.GetComponent<Colorizer>().SetAllColor(colorByDist ? GetColorByDist(originHex, GenerateTeamGradient(), GameManager.instance.maxDist) : team.Color);
         
         var originPos = originHex.hexRenderer.transform.position;

@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.domybest.mybox": "https://github.com/Deadcows/MyBox.git",
     "com.itisnajim.socketiounity": "https://github.com/itisnajim/SocketIOUnity.git",
     "com.unity.2d.sprite": "1.0.0",

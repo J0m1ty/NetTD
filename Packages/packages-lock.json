@@ -1,5 +1,12 @@
 {
   "dependencies": {
+    "com.cysharp.unitask": {
+      "version": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "c7eedf85c79e2ce06658c8060ca38a282f2ca7ab"
+    },
     "com.domybest.mybox": {
       "version": "https://github.com/Deadcows/MyBox.git",
       "depth": 0,

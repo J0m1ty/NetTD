@@ -636,7 +636,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   material: {fileID: 2100000, guid: 1b45bfef066c41743915da0b3bb3804f, type: 2}
   hexColor: {r: 0.103773594, g: 0.103773594, b: 0.103773594, a: 0}
-  innerSize: 60
+  innerSize: 0
   outerSize: 70
   height: 2000
   isFlatTopped: 0
@@ -2020,7 +2020,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 3
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1158125480
 GameObject:
@@ -2265,6 +2265,7 @@ MonoBehaviour:
   speedRange:
     Min: 0.1
     Max: 0.5
+  maxDist: 100
   rotationAmount: 0.5
   zoomAmount: {x: 0, y: -3, z: 3}
   zoomRange:
@@ -3188,9 +3189,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd6adc36165bbac468b837474bf1e0af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  quality: 0.5
   cameraRig: {fileID: 1359453164}
   pauseMenu: {fileID: 110918888}
+  loadingPopupPrefab: {fileID: 6375636921315893453, guid: fbaae997a824ce04986a6302ddc8101a, type: 3}
   waitingPopupPrefab: {fileID: 8462659311767644414, guid: 72d0ed81058dd8348af7d355b135218a, type: 3}
+  gameOverPopupPrefab: {fileID: 1034362899037720908, guid: 5e6a0f1a92e448b4899b0dc9b3636d37, type: 3}
   lockKeyboard: 0
   lockMouse: 0
   validPlacementColor: {r: 0.12055002, g: 0.5943396, b: 0.19439608, a: 0.62352943}
@@ -3203,10 +3207,10 @@ MonoBehaviour:
   enemyBaseIndex: 35
   playerHealth: {fileID: 397205679}
   playerMoney: {fileID: 585371635}
+  gameActive: 0
   baseTowerPrefab: {fileID: 8989966472863924143, guid: cac1ed4b025ff404a888d3bf40a86170, type: 3}
   gunTowerPrefab: {fileID: 5523145938677343208, guid: 338a1182ac395f14196e369216ae6100, type: 3}
   minerTowerPrefab: {fileID: 1150704464431722852, guid: a499a8bd451a76a4d9f5f1218bc7a42c, type: 3}
-  gameActive: 0
 --- !u!4 &1875890321
 Transform:
   m_ObjectHideFlags: 0
@@ -3220,7 +3224,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 4
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1877932597
 GameObject:
