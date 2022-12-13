@@ -1033,8 +1033,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
+      - m_Target: {fileID: 1034362899037720914}
+        m_TargetAssemblyTypeName: GameOverGroup, Assembly-CSharp
         m_MethodName: Leave
         m_Mode: 1
         m_Arguments:

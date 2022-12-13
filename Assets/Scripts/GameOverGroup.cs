@@ -43,7 +43,11 @@ public class GameOverGroup : MonoBehaviour
         methodText.text = "(by " + method + ")";
         moneyText.text = $"Total Credits Earned:\n<size=100><b><color=#E0BA06>{(money).ToString()}¢</color>";
         lifeText.text = $"Health Remaining:\n<size=100><b><color=#933042>{(life / PersonalInfo.maxLife * 100f).ToString()}%</color>";
-    } 
+    }
+
+    public void Leave() {
+        GameManager.instance?.Leave();
+    }
     
     void Update()
     {
