@@ -26,7 +26,7 @@ public class WSClient : MonoBehaviour
     private Queue<Action> jobs = new Queue<Action>();
 
     [Header("SocketIO")]
-    public string url = "http://192.168.1.20:3000"; // server IP address
+    public string url; // server IP address
     public int timeoutMS; // server request delay
     public int delayMS; // server request delay
 
@@ -230,6 +230,10 @@ public class WSClient : MonoBehaviour
     }
 
     private void Update() {
+        if (Input.GetKeyDown(KeyCode.F11)) {
+            Screen.fullScreen = !Screen.fullScreen;
+        }
+
         if (!isAuth && SceneAuth(SceneManager.GetActiveScene().name)) {
             SceneManager.LoadScene(registerScene);
             return;
@@ -510,6 +514,8 @@ public class WSClient : MonoBehaviour
 
     // Methods
     private void ConnectSocket() {
+        Debug.Log("Connecting to server " + url);
+
         var uri = new System.Uri(url);
 
         socket = new SocketIOUnity(uri, new SocketIOOptions {

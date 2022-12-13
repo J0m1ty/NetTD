@@ -497,8 +497,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d7b7d8d9573a574184b0d5aed0eff27, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  url: http://192.168.1.20:3000
-  timeoutMS: 1000
+  url: https://unityserver.jomity.repl.co
+  timeoutMS: 5000
   delayMS: 1000
   authPopup: {fileID: 4691819852160180889, guid: a3d31089c0c743d40aa45308f617e038, type: 3}
   disconnectPopup: {fileID: 7770693130341472757, guid: 4ec87886e2f1bdf4389da98a8fc94e1e, type: 3}
@@ -516,14 +516,14 @@ MonoBehaviour:
   - scene:
       Scene: {fileID: 102900000, guid: e0676a301f0162c4dbaf764bdc3cc09c, type: 3}
       SceneName: MenuScene
-      sceneIndex: 2
+      sceneIndex: 1
       sceneEnabled: 1
     requireAuth: 1
     type: 2
   - scene:
       Scene: {fileID: 102900000, guid: 42392dbbe89b73c42b85e547eff42b2a, type: 3}
       SceneName: GameScene
-      sceneIndex: 1
+      sceneIndex: 2
       sceneEnabled: 1
     requireAuth: 1
     type: 3
@@ -1012,7 +1012,7 @@ Light:
   m_Type: 2
   m_Shape: 0
   m_Color: {r: 0.93333334, g: 0.38431373, b: 0.38431373, a: 1}
-  m_Intensity: 34.8
+  m_Intensity: 26.25
   m_Range: 117.87
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -2040,7 +2040,7 @@ Light:
   m_Type: 2
   m_Shape: 0
   m_Color: {r: 0.93333334, g: 0.38431373, b: 0.38431373, a: 1}
-  m_Intensity: 34.8
+  m_Intensity: 26.25
   m_Range: 117.87
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -2644,7 +2644,7 @@ Light:
   m_Type: 1
   m_Shape: 0
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 0.55
+  m_Intensity: 0.5
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208

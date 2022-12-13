@@ -1981,7 +1981,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1116831781
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3951,7 +3951,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &2133779324
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3983,14 +3983,14 @@ MonoBehaviour:
   - scene:
       Scene: {fileID: 102900000, guid: e0676a301f0162c4dbaf764bdc3cc09c, type: 3}
       SceneName: MenuScene
-      sceneIndex: 2
+      sceneIndex: 1
       sceneEnabled: 1
     requireAuth: 1
     type: 2
   - scene:
       Scene: {fileID: 102900000, guid: 42392dbbe89b73c42b85e547eff42b2a, type: 3}
       SceneName: GameScene
-      sceneIndex: 1
+      sceneIndex: 2
       sceneEnabled: 1
     requireAuth: 1
     type: 3
